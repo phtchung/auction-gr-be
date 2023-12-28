@@ -3,16 +3,17 @@ const mongoose = require('mongoose')
 const User = mongoose.model(
   'User',
   new mongoose.Schema({
-    email: String,
-    password: String,
-    name: String,
-    age: Number,
+      email: String,
+      password: String,
+      name: String,
+      username: String,
     gender: Boolean,
-    height: Number,
-    weight: Number,
-    bust: Number,
-    waist: Number,
-    hip: Number,
+    point: Number,
+    phone: String,
+      average_rating:Number ,
+    date_of_birth: Date,
+    active: Boolean,
+      address:String,
     activity_intensity: Number,
     roles: [
       {
@@ -20,7 +21,7 @@ const User = mongoose.model(
         ref: 'Role'
       }
     ]
-  })
+  },{timestamps: true})
 )
 
 module.exports = User

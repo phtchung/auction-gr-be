@@ -3,7 +3,7 @@ const dbConfig = require('../config/db.config')
 const Role = db.role
 
 db.mongoose
-  .connect(`mongodb://${dbConfig.USERNAME}:${dbConfig.PASSWORD}@${dbConfig.HOST}:27017/${dbConfig.DB}`, {
+  .connect('mongodb://127.0.0.1:27017/Auction', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
