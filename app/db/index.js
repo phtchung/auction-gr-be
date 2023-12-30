@@ -5,7 +5,7 @@ const Role = db.role
 db.mongoose
   .connect('mongodb://127.0.0.1:27017/Auction', {
     useNewUrlParser: true,
-    useUnifiedTopology: true,
+    useUnifiedTopology: true
   })
   .then(() => {
     console.log('Successfully connect to MongoDB.')

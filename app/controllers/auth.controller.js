@@ -9,14 +9,20 @@ var bcrypt = require('bcryptjs')
 exports.signup = (req, res) => {
   const user = new User({
     email: req.body.email,
-    password: bcrypt.hashSync(req.body.password, 8)
+    password: bcrypt.hashSync(req.body.password, 8),
+    name: req.body.name,
+    username: req.body.username,
+    point: req.body.point,
+    phone: req.body.phone,
+    active: req.body.active,
+    gender: req.body.gender
   })
 
   user
     .save()
     .then((savedUser) => {
       if (req.body.roles) {
-        if (req.body.roles == 'admin') {
+        if (req.body.roles === 'admin') {
           res.status(500).send({ message: 'Can not sign up with admin' })
         }
         Role.find({ name: { $in: req.body.roles } })

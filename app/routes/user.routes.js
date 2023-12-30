@@ -7,9 +7,13 @@ module.exports = function (app) {
     next()
   })
 
-  app.get('/api/test/all', controller.allAccess)
+  app.get('/test/all', controller.allAccess)
 
-  app.get('/api/test/user', [authJwt.verifyToken], controller.userBoard)
+  app.get('/test/user', [authJwt.verifyToken], controller.userBoard)
 
   app.get('/me', [authJwt.verifyToken], controller.getMyProfile)
+
+  app.get('/user', [authJwt.verifyToken], controller.getUser)
+
+  app.put('/user', [authJwt.verifyToken], controller.updateInfo)
 }
