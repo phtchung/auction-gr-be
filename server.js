@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
 require('dotenv').config()
+// var usersRouter = require('./app/routes/user.routes');
 
 const app = express()
 app.use(cors())
@@ -23,8 +24,11 @@ app.get('/', (req, res) => {
 
 // routes
 require('./app/routes/auth.routes')(app)
-require('./app/routes/user.routes')(app)
 require('./app/routes/admin.routes')(app)
+require('./app/routes/user.routes')(app)
+require('./app/routes/product.routes')(app)
+
+// app.use('/users', usersRouter);
 
 // set port, listen for requests
 const PORT = process.env.PORT || 8088
