@@ -6,11 +6,7 @@ const mongoose = require('mongoose')
 exports.getAuctionHistory = async (req, res) => {
   try {
     const userId = req.userId
-    console.log(req.body)
-
     const status = req.body.status
-    console.log(userId, status)
-
     const products = await Product.find({ winner_id: new mongoose.Types.ObjectId(userId), status })
       .populate('seller_id')
       .lean()

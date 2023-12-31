@@ -27,6 +27,8 @@ require('./app/routes/auth.routes')(app)
 require('./app/routes/admin.routes')(app)
 require('./app/routes/user.routes')(app)
 require('./app/routes/product.routes')(app)
+require('./app/routes/request.routes')(app)
+
 
 // app.use('/users', usersRouter);
 
