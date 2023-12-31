@@ -18,7 +18,6 @@ const Request = mongoose.model(
       sale_price: Number,
       reserve_price: Number,
       step_price: Number,
-      final_price: Number,
       shipping_fee: Number,
       rank: String,
       description: String,
