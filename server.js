@@ -29,7 +29,6 @@ require('./app/routes/user.routes')(app)
 require('./app/routes/product.routes')(app)
 require('./app/routes/request.routes')(app)
 
-
 // app.use('/users', usersRouter);
 
 // set port, listen for requests
