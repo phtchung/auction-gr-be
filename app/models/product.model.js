@@ -12,7 +12,10 @@ const Product = mongoose.model(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
       },
-      request_id: String,
+        request_id: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Request'
+        },
       product_name: String,
       category_id: String,
       status: {

@@ -56,3 +56,54 @@ exports.getAuctionHistoryDetail = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' + error })
   }
 }
+
+
+exports.getSaleHistory = async (req, res) => {
+  try {
+    const userId = req.userId
+    const start_time = req.query.start_time
+    const finish_time = req.query.finish_time
+
+
+    const products = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: { $in: [8, 11] }
+    }).select(' _id createdAt product_name final_price shipping_fee request_id status ')
+    console.log(products)
+
+    const productIds = products.map((product) => product._id)
+    const deliveries = await Delivery.find({ product_id: { $in: productIds },
+      completed_at: {
+        $gte: new Date(start_time),
+        $lte: new Date(finish_time)
+      }}).select('completed_at product_id')
+    console.log(deliveries)
+
+    const saleData = deliveries.map((delivery) => {
+      const pro = products.find((product) => String(delivery.product_id) === String(product._id))
+      return {
+        _id: pro._id,
+        request_id: pro.request_id,
+        product_name: pro.product_name,
+        createdAt: pro.createdAt,
+        shipping_fee: pro.shipping_fee,
+        status:pro.status,
+        final_price: pro.final_price,
+        completed_at: delivery?.completed_at
+      }
+    })
+    console.log('alo',saleData)
+    const total = {
+      total_sale: saleData.length,
+      total_completed: saleData.filter((req) => req.status === 8).length,
+      total_cancel: saleData.filter((req) => req.status === 11).length,
+      total_price_sale: saleData.reduce((total, sale) => total + (sale.final_price || 0), 0),
+      total_price_completed: saleData.reduce((total, sale) => (sale.status === 8 ? total + (sale.final_price || 0) : total), 0),
+      total_price_cancel: saleData.reduce((total, sale) => (sale.status === 11 ? total + (sale.final_price || 0) : total), 0),
+    };
+    console.log(total)
+    res.status(200).json({ saleData, total })
+  } catch (err) {
+    return res.status(500).json({ message: 'DATABASE_ERROR', err })
+  }
+}
