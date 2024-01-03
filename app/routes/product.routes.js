@@ -10,4 +10,7 @@ module.exports = function (app) {
   app.post('/product/history', [authJwt.verifyToken], controller.getAuctionHistory)
 
   app.get('/product/history/:productId', [authJwt.verifyToken], controller.getAuctionHistoryDetail)
+
+  app.post('/sale/history', [authJwt.verifyToken], controller.getSaleHistory)
+
 }
