@@ -13,4 +13,7 @@ module.exports = function (app) {
 
   app.post('/sale/history', [authJwt.verifyToken], controller.getSaleHistory)
 
+  app.post('/product/winOrderList', [authJwt.verifyToken], controller.getWinOrderList)
+
+
 }
