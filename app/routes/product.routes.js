@@ -15,5 +15,5 @@ module.exports = function (app) {
 
   app.post('/product/winOrderList', [authJwt.verifyToken], controller.getWinOrderList)
 
-
+  app.get('/product/winCount', [authJwt.verifyToken], controller.getWinCount)
 }

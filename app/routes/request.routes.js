@@ -11,7 +11,5 @@ module.exports = function (app) {
 
   app.get('/request/:requestId', [authJwt.verifyToken], controller.getRequestDetail)
 
-
   app.get('/request/history/:requestId', [authJwt.verifyToken], controller.getRequestHistoryDetail)
-
 }

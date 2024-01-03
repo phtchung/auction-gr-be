@@ -56,27 +56,25 @@ exports.getAuctionHistoryDetail = async (req, res) => {
   }
 }
 
-
 exports.getSaleHistory = async (req, res) => {
   try {
     const userId = req.userId
     const start_time = req.query.start_time
     const finish_time = req.query.finish_time
 
-
     const products = await Product.find({
       seller_id: new mongoose.Types.ObjectId(userId),
       status: { $in: [8, 11] }
     }).select(' _id createdAt product_name final_price shipping_fee request_id status ')
 
-
     const productIds = products.map((product) => product._id)
-    const deliveries = await Delivery.find({ product_id: { $in: productIds },
+    const deliveries = await Delivery.find({
+      product_id: { $in: productIds },
       completed_at: {
         $gte: new Date(start_time),
         $lte: new Date(finish_time)
-      }}).select('completed_at product_id')
-
+      }
+    }).select('completed_at product_id')
 
     const saleData = deliveries.map((delivery) => {
       const pro = products.find((product) => String(delivery.product_id) === String(product._id))
@@ -86,7 +84,7 @@ exports.getSaleHistory = async (req, res) => {
         product_name: pro.product_name,
         createdAt: pro.createdAt,
         shipping_fee: pro.shipping_fee,
-        status:pro.status,
+        status: pro.status,
         final_price: pro.final_price,
         completed_at: delivery?.completed_at
       }
@@ -97,9 +95,15 @@ exports.getSaleHistory = async (req, res) => {
       total_completed: saleData.filter((req) => req.status === 8).length,
       total_cancel: saleData.filter((req) => req.status === 11).length,
       total_price_sale: saleData.reduce((total, sale) => total + (sale.final_price || 0), 0),
-      total_price_completed: saleData.reduce((total, sale) => (sale.status === 8 ? total + (sale.final_price || 0) : total), 0),
-      total_price_cancel: saleData.reduce((total, sale) => (sale.status === 11 ? total + (sale.final_price || 0) : total), 0),
-    };
+      total_price_completed: saleData.reduce(
+        (total, sale) => (sale.status === 8 ? total + (sale.final_price || 0) : total),
+        0
+      ),
+      total_price_cancel: saleData.reduce(
+        (total, sale) => (sale.status === 11 ? total + (sale.final_price || 0) : total),
+        0
+      )
+    }
 
     res.status(200).json({ saleData, total })
   } catch (err) {
@@ -107,25 +111,66 @@ exports.getSaleHistory = async (req, res) => {
   }
 }
 
-
 exports.getWinOrderList = async (req, res) => {
   try {
     const userId = req.userId
     const status = req.body.status
-    let winOrderList;
+    let winOrderList
 
-    if(status === 567){
-       winOrderList = await Product.find({
+    if (status === 567) {
+      winOrderList = await Product.find({
         winner_id: new mongoose.Types.ObjectId(userId),
-        status: { $in: [5,6,7] }})
-    }else {
-       winOrderList = await Product.find({
-        winner_id: new mongoose.Types.ObjectId(userId), status : status })
+        status: { $in: [5, 6, 7] }
+      })
+    } else {
+      winOrderList = await Product.find({
+        winner_id: new mongoose.Types.ObjectId(userId),
+        status: status
+      })
     }
 
+    res.status(200).json({ winOrderList, status })
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' + error })
+  }
+}
 
+exports.getWinCount = async (req, res) => {
+  try {
+    const userId = req.userId
 
-    res.status(200).json({winOrderList,status})
+    const AucW = await Product.find({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      status: 4
+    })
+
+    const DlvW = await Product.find({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      status: { $in: [5, 6, 7] }
+    })
+
+    const CplW = await Product.find({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      status: 8
+    })
+
+    const CanW = await Product.find({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      status: 11
+    })
+    const ReW = await Product.find({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      status: 9
+    })
+    const countWin = {
+      count_AucW: AucW.length,
+      count_DlvW: DlvW.length,
+      count_Cpl: CplW.length,
+      count_Can: CanW.length,
+      count_Ret: ReW.length
+    }
+
+    res.status(200).json(countWin)
   } catch (error) {
     res.status(500).json({ message: 'Internal server error' + error })
   }

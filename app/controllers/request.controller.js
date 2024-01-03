@@ -31,7 +31,6 @@ exports.getRequest = async (req, res) => {
   }
 }
 
-
 exports.getRequestDetail = async (req, res) => {
   try {
     const userId = req.userId
@@ -39,19 +38,18 @@ exports.getRequestDetail = async (req, res) => {
 
     const request = await Product.findOne({
       seller_id: new mongoose.Types.ObjectId(userId),
-      request_id:new mongoose.Types.ObjectId(requestId)
+      request_id: new mongoose.Types.ObjectId(requestId)
     })
 
     const deliData = await Delivery.findOne({
-      product_id: new mongoose.Types.ObjectId(request._id),
+      product_id: new mongoose.Types.ObjectId(request._id)
     }).select('address name phone note completed_at')
 
-    res.status(200).json({...request._doc,deliData})
+    res.status(200).json({ ...request._doc, deliData })
   } catch (err) {
     return res.status(500).json({ message: 'DATABASE_ERROR', err })
   }
 }
-
 
 exports.getRequestHistoryDetail = async (req, res) => {
   try {
@@ -60,9 +58,8 @@ exports.getRequestHistoryDetail = async (req, res) => {
 
     const request = await Request.findOne({
       seller_id: new mongoose.Types.ObjectId(userId),
-      _id:new mongoose.Types.ObjectId(requestId)
+      _id: new mongoose.Types.ObjectId(requestId)
     })
-
 
     res.status(200).json(request)
   } catch (err) {

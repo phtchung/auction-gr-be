@@ -28,7 +28,7 @@ const Request = mongoose.model(
       start_time: Date,
       finish_time: Date,
       image_list: [String],
-        type_of_auction: Number,
+      type_of_auction: Number
     },
     { timestamps: true }
   )
