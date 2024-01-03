@@ -1,4 +1,3 @@
-const User = require('../models/user.model')
 const Delivery = require('../models/delivery.model')
 const Product = require('../models/product.model')
 const mongoose = require('mongoose')
@@ -69,7 +68,7 @@ exports.getSaleHistory = async (req, res) => {
       seller_id: new mongoose.Types.ObjectId(userId),
       status: { $in: [8, 11] }
     }).select(' _id createdAt product_name final_price shipping_fee request_id status ')
-    console.log(products)
+
 
     const productIds = products.map((product) => product._id)
     const deliveries = await Delivery.find({ product_id: { $in: productIds },
@@ -77,7 +76,7 @@ exports.getSaleHistory = async (req, res) => {
         $gte: new Date(start_time),
         $lte: new Date(finish_time)
       }}).select('completed_at product_id')
-    console.log(deliveries)
+
 
     const saleData = deliveries.map((delivery) => {
       const pro = products.find((product) => String(delivery.product_id) === String(product._id))
@@ -92,7 +91,7 @@ exports.getSaleHistory = async (req, res) => {
         completed_at: delivery?.completed_at
       }
     })
-    console.log('alo',saleData)
+
     const total = {
       total_sale: saleData.length,
       total_completed: saleData.filter((req) => req.status === 8).length,
@@ -101,9 +100,33 @@ exports.getSaleHistory = async (req, res) => {
       total_price_completed: saleData.reduce((total, sale) => (sale.status === 8 ? total + (sale.final_price || 0) : total), 0),
       total_price_cancel: saleData.reduce((total, sale) => (sale.status === 11 ? total + (sale.final_price || 0) : total), 0),
     };
-    console.log(total)
+
     res.status(200).json({ saleData, total })
   } catch (err) {
     return res.status(500).json({ message: 'DATABASE_ERROR', err })
+  }
+}
+
+
+exports.getWinOrderList = async (req, res) => {
+  try {
+    const userId = req.userId
+    const status = req.body.status
+    let winOrderList;
+
+    if(status === 567){
+       winOrderList = await Product.find({
+        winner_id: new mongoose.Types.ObjectId(userId),
+        status: { $in: [5,6,7] }})
+    }else {
+       winOrderList = await Product.find({
+        winner_id: new mongoose.Types.ObjectId(userId), status : status })
+    }
+
+
+
+    res.status(200).json({winOrderList,status})
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' + error })
   }
 }
