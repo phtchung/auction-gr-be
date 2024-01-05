@@ -19,10 +19,10 @@ const Product = mongoose.model(
       product_delivery: { type: mongoose.Schema.Types.Mixed },
       product_name: String,
       category_id: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: 'Category'
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Category'
       },
-        payment_method:String,
+      payment_method: String,
       status: {
         type: Number,
         enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],

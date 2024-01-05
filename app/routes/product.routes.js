@@ -23,5 +23,6 @@ module.exports = function (app) {
 
   app.post('/product/reqOrderList', [authJwt.verifyToken], controller.getRequestOrderList)
 
+  app.get('/product/req/:productId', [authJwt.verifyToken], controller.getReqOrderDetail )
 
 }

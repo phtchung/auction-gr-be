@@ -7,7 +7,8 @@ exports.getAuctionHistory = async (req, res) => {
     const userId = req.userId
     const status = req.body.status
     const products = await Product.find({ winner_id: new mongoose.Types.ObjectId(userId), status })
-        .lean().populate('seller_id', 'name')
+      .lean()
+      .populate('seller_id', 'name')
 
     res.status(200).json(products)
   } catch (error) {
@@ -26,7 +27,6 @@ exports.getAuctionHistoryDetail = async (req, res) => {
       .select('product_name product_delivery rank shipping_fee reserve_price final_price victory_time')
       .lean()
 
-
     res.status(200).json(product)
   } catch (error) {
     res.status(500).json({ message: 'Internal server error' + error })
@@ -42,12 +42,11 @@ exports.getSaleHistory = async (req, res) => {
     const products = await Product.find({
       seller_id: new mongoose.Types.ObjectId(userId),
       status: { $in: [8, 11] },
-      'product_delivery.completed_at':
-          {
-            $gte: new Date(start_time),
-            $lte: new Date(finish_time)
-          }
-    },).select(' _id createdAt product_name final_price product_delivery.completed_at shipping_fee request_id status ')
+      'product_delivery.completed_at': {
+        $gte: new Date(start_time),
+        $lte: new Date(finish_time)
+      }
+    }).select(' _id createdAt product_name final_price product_delivery.completed_at shipping_fee request_id status ')
 
     const total = {
       total_sale: products.length,
@@ -143,7 +142,7 @@ exports.getWinOrderDetail = async (req, res) => {
     const product = await Product.findOne({
       winner_id: new mongoose.Types.ObjectId(userId),
       _id: new mongoose.Types.ObjectId(productId)
-    }).populate('seller_id category_id','name phone')
+    }).populate('seller_id category_id', 'name phone')
 
     res.status(200).json(product)
   } catch (err) {
@@ -220,20 +219,19 @@ exports.getReqCount = async (req, res) => {
   }
 }
 
-
 exports.getRequestOrderList = async (req, res) => {
   try {
     const userId = req.userId
     const status = req.body.status
 
-    let reqOrderList;
+    let reqOrderList
     if (status === 1) {
-       reqOrderList = await Request.find({
+      reqOrderList = await Request.find({
         seller_id: new mongoose.Types.ObjectId(userId),
-         status: status
+        status: status
       })
     } else {
-       reqOrderList = await Product.find({
+      reqOrderList = await Product.find({
         seller_id: new mongoose.Types.ObjectId(userId),
         status: status
       })
@@ -245,3 +243,26 @@ exports.getRequestOrderList = async (req, res) => {
   }
 }
 
+exports.getReqOrderDetail = async (req, res) => {
+  try {
+    const userId = req.userId
+    const Id = req.params.productId
+    let product
+
+     product = await Product.findOne({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      _id: new mongoose.Types.ObjectId(Id)
+    }).populate('seller_id category_id request_id', 'name phone createdAt')
+
+    if(!product){
+        product = await Request.findOne({
+        seller_id: new mongoose.Types.ObjectId(userId),
+        _id: new mongoose.Types.ObjectId(Id)
+      }).populate('seller_id category_id', 'name phone')
+    }
+
+    res.status(200).json(product)
+  } catch (err) {
+    return res.status(500).json({ message: 'DATABASE_ERROR', err })
+  }
+}
