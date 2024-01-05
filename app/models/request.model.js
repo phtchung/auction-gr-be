@@ -12,7 +12,7 @@ const Request = mongoose.model(
       product_name: String,
       status: {
         type: Number,
-        enum: [1, 2, 11],
+        enum: [1, 2, 13],
         default: 1
       },
       sale_price: Number,
