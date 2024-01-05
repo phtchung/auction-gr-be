@@ -219,3 +219,29 @@ exports.getReqCount = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' + error })
   }
 }
+
+
+exports.getRequestOrderList = async (req, res) => {
+  try {
+    const userId = req.userId
+    const status = req.body.status
+
+    let reqOrderList;
+    if (status === 1) {
+       reqOrderList = await Request.find({
+        seller_id: new mongoose.Types.ObjectId(userId),
+         status: status
+      })
+    } else {
+       reqOrderList = await Product.find({
+        seller_id: new mongoose.Types.ObjectId(userId),
+        status: status
+      })
+    }
+
+    res.status(200).json({ reqOrderList, status })
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' + error })
+  }
+}
+
