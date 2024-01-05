@@ -1,6 +1,7 @@
 const Delivery = require('../models/delivery.model')
 const Product = require('../models/product.model')
 const mongoose = require('mongoose')
+const Request = require("../models/request.model");
 
 exports.getAuctionHistory = async (req, res) => {
   try {
@@ -171,6 +172,92 @@ exports.getWinCount = async (req, res) => {
     }
 
     res.status(200).json(countWin)
+  } catch (error) {
+    res.status(500).json({ message: 'Internal server error' + error })
+  }
+}
+
+exports.getWinOrderDetail = async (req, res) => {
+  try {
+    const userId = req.userId
+    const productId = req.params.productId
+
+    const product = await Product.findOne({
+      winner_id: new mongoose.Types.ObjectId(userId),
+      _id: new mongoose.Types.ObjectId(productId)
+    })
+
+    res.status(200).json(product)
+  } catch (err) {
+    return res.status(500).json({ message: 'DATABASE_ERROR', err })
+  }
+}
+
+exports.getReqCount = async (req, res) => {
+  try {
+    const userId = req.userId
+
+    const penR = await Request.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 1
+    })
+
+    const appR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 2
+    })
+
+    const bidR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 3
+    })
+
+    const sucR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 5
+    })
+
+    const cfR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 6
+    })
+
+    const dlvR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 7
+    })
+    const cplR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 8
+    })
+    const failR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 10
+    })
+    const calR = await Product.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 11
+    })
+    const rejR = await Request.find({
+      seller_id: new mongoose.Types.ObjectId(userId),
+      status: 13
+    })
+
+
+    const countReq = {
+      count_penR: penR.length,
+      count_appR: appR.length,
+      count_bidR: bidR.length,
+      count_sucR: sucR.length,
+      count_cfR: cfR.length,
+      count_dlvR: dlvR.length,
+      count_cplR: cplR.length,
+      count_failR: failR.length,
+      count_calR: calR.length,
+      count_rejR: rejR.length,
+    }
+
+    res.status(200).json(countReq)
   } catch (error) {
     res.status(500).json({ message: 'Internal server error' + error })
   }
