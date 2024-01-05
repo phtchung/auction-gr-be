@@ -4,10 +4,6 @@ const Delivery = mongoose.model(
   'Delivery',
   new mongoose.Schema(
     {
-      product_id: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product'
-      },
       name: String,
       address: String,
       phone: String,

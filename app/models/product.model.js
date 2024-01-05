@@ -1,5 +1,4 @@
 const mongoose = require('mongoose')
-const {Schema} = require("mongoose");
 
 const Product = mongoose.model(
   'Product',
@@ -17,8 +16,13 @@ const Product = mongoose.model(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Request'
       },
+      product_delivery: { type: mongoose.Schema.Types.Mixed },
       product_name: String,
-      category_id: String,
+      category_id: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'Category'
+      },
+        payment_method:String,
       status: {
         type: Number,
         enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
