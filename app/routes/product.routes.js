@@ -20,6 +20,4 @@ module.exports = function (app) {
   app.get('/product/win/:productId', [authJwt.verifyToken], controller.getWinOrderDetail)
 
   app.get('/product/reqCount', [authJwt.verifyToken], controller.getReqCount)
-
-
 }
