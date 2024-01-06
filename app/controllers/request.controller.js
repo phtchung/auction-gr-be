@@ -3,6 +3,7 @@ const Product = require('../models/product.model')
 const Delivery = require('../models/delivery.model')
 
 const mongoose = require('mongoose')
+const {ObjectId} = require("mongodb");
 
 exports.getRequest = async (req, res) => {
   try {
@@ -26,6 +27,31 @@ exports.getRequest = async (req, res) => {
     }
 
     res.status(200).json({ requests, total })
+  } catch (err) {
+    return res.status(500).json({ message: 'DATABASE_ERROR', err })
+  }
+}
+
+exports.createRequest = async (req, res) => {
+  try {
+    const userId = req.userId
+    const seller_id = new mongoose.Types.ObjectId(userId)
+    const request =  new Request({
+      description: req.body.description,
+      product_name: req.body.product_name,
+      rank: req.body.rank,
+      reserve_price: parseInt(req.body.reserve_price),
+      sale_price: parseInt(req.body.sale_price),
+      shipping_fee: parseInt(req.body.shipping_fee),
+      step_price: parseInt(req.body.step_price),
+      seller_id: seller_id,
+      status:1,
+      type_of_auction:1
+    })
+
+    await request.save();
+
+    res.status(200).json(request)
   } catch (err) {
     return res.status(500).json({ message: 'DATABASE_ERROR', err })
   }

@@ -249,13 +249,13 @@ exports.getReqOrderDetail = async (req, res) => {
     const Id = req.params.productId
     let product
 
-     product = await Product.findOne({
+    product = await Product.findOne({
       seller_id: new mongoose.Types.ObjectId(userId),
       _id: new mongoose.Types.ObjectId(Id)
     }).populate('seller_id category_id request_id', 'name phone createdAt')
 
-    if(!product){
-        product = await Request.findOne({
+    if (!product) {
+      product = await Request.findOne({
         seller_id: new mongoose.Types.ObjectId(userId),
         _id: new mongoose.Types.ObjectId(Id)
       }).populate('seller_id category_id', 'name phone')
