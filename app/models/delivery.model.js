@@ -9,13 +9,14 @@ const Delivery = mongoose.model(
       phone: String,
       status: {
         type: Number,
-        enum: [6, 7, 8, 9, 10, 11, 12],
-        default: 6
+        enum: [5,6, 7, 8, 9, 10, 11, 12],
+        default: 5
       },
       note: String,
       completed_at: Date,
       return_at: Date,
-      delivery_start_at: Date
+      delivery_start_at: Date,
+        payment_method:String,
     },
     { timestamps: true }
   )
