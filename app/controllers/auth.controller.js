@@ -15,8 +15,7 @@ exports.signup = (req, res) => {
     point: req.body.point,
     phone: req.body.phone,
     active: req.body.active,
-    gender: req.body.gender,
-
+    gender: req.body.gender
   })
 
   user

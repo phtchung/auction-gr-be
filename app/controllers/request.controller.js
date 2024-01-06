@@ -3,7 +3,7 @@ const Product = require('../models/product.model')
 const Delivery = require('../models/delivery.model')
 
 const mongoose = require('mongoose')
-const {ObjectId} = require("mongodb");
+const { ObjectId } = require('mongodb')
 
 exports.getRequest = async (req, res) => {
   try {
@@ -36,7 +36,7 @@ exports.createRequest = async (req, res) => {
   try {
     const userId = req.userId
     const seller_id = new mongoose.Types.ObjectId(userId)
-    const request =  new Request({
+    const request = new Request({
       description: req.body.description,
       product_name: req.body.product_name,
       rank: req.body.rank,
@@ -45,11 +45,11 @@ exports.createRequest = async (req, res) => {
       shipping_fee: parseInt(req.body.shipping_fee),
       step_price: parseInt(req.body.step_price),
       seller_id: seller_id,
-      status:1,
-      type_of_auction:1
+      status: 1,
+      type_of_auction: 1
     })
 
-    await request.save();
+    await request.save()
 
     res.status(200).json(request)
   } catch (err) {
@@ -92,3 +92,5 @@ exports.getRequestHistoryDetail = async (req, res) => {
     return res.status(500).json({ message: 'DATABASE_ERROR', err })
   }
 }
+
+
