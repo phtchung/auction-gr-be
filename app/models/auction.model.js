@@ -8,10 +8,11 @@ const Auction = mongoose.model(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Product'
       },
-      user_id: {
+      user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
       },
+      username: String,
       bid_price: Number,
       bid_time: Date
     },
