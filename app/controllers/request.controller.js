@@ -92,5 +92,3 @@ exports.getRequestHistoryDetail = async (req, res) => {
     return res.status(500).json({ message: 'DATABASE_ERROR', err })
   }
 }
-
-

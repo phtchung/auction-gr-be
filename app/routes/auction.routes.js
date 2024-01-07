@@ -1,5 +1,5 @@
 const { authJwt } = require('../middlewares')
-const controller = require('../controllers/delivery.controller')
+const controller = require('../controllers/auction.controller')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -7,5 +7,5 @@ module.exports = function (app) {
     next()
   })
 
-  app.post('/delivery', [authJwt.verifyToken], controller.createDeliveryInfor)
+  app.get('/bidding', [authJwt.verifyToken], controller.getBiddingList)
 }
