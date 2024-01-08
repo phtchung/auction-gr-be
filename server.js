@@ -19,7 +19,7 @@ app.use((error, req, res, next) => {
 
 // simple route
 app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to brumoh application.' })
+  res.json({ message: 'Welcome to  application.' })
 })
 
 // routes
