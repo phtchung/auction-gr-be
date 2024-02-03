@@ -1,5 +1,6 @@
 const { authJwt } = require('../middlewares')
 const controller = require('../controllers/request.controller')
+const { processFileMiddleware } = require('../middlewares')
 
 module.exports = function (app) {
   app.use(function (req, res, next) {
@@ -14,4 +15,6 @@ module.exports = function (app) {
   app.get('/request/history/:requestId', [authJwt.verifyToken], controller.getRequestHistoryDetail)
 
   app.post('/requests', [authJwt.verifyToken], controller.createRequest)
+
+  app.post('/upload', controller.upload)
 }
