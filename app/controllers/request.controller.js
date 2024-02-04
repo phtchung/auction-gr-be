@@ -3,7 +3,6 @@ const Product = require('../models/product.model')
 const Delivery = require('../models/delivery.model')
 const {Storage} = require('@google-cloud/storage')
 const mongoose = require('mongoose')
-const processFile = require("../middlewares/upload");
 const {format} = require("util");
 
 exports.getRequest = async (req, res) => {
@@ -45,12 +44,30 @@ exports.createRequest = async (req, res) => {
     try {
         const userId = req.userId
         const seller_id = new mongoose.Types.ObjectId(userId)
-
         if (!req.files || req.files.length === 0) {
             return res.status(400).send({message: "Please upload at least one file!"});
         }
 
-        const uploadPromises = req.files.map(file => {
+        //Single file
+        const uploadMainImagePromise = new Promise((resolve, reject) => {
+            const blob = bucket.file(Date.now()+ userId + req.files['singlefile[]'][0].originalname);
+            const blobStream = blob.createWriteStream({ resumable: false });
+
+            blobStream.on("error", (err) => {
+                reject(err);
+            });
+
+            blobStream.on("finish", async () => {
+                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                resolve({ url: publicUrl });
+            });
+            blobStream.end(req.files['singlefile[]'][0].buffer);
+        });
+        const rs = await uploadMainImagePromise;
+        const main_image = rs.url
+
+        //multifile
+        const uploadPromises = req.files['files[]'].map(file => {
             const blob = bucket.file(  Date.now()+ userId + file.originalname);
             const blobStream = blob.createWriteStream(
                 {resumable: false});
@@ -71,17 +88,18 @@ exports.createRequest = async (req, res) => {
         const imageUrls = results.map(item => item.url);
 
         const request = new Request({
-            description: req.body.description,
-            product_name: req.body.product_name,
-            rank: req.body.rank,
-            reserve_price: parseInt(req.body.reserve_price),
-            sale_price: parseInt(req.body.sale_price),
-            shipping_fee: parseInt(req.body.shipping_fee),
-            step_price: parseInt(req.body.step_price),
+            description: req.body?.description,
+            product_name: req.body?.product_name,
+            rank: req.body?.rank,
+            reserve_price: parseInt(req.body?.reserve_price),
+            sale_price: parseInt(req.body?.sale_price),
+            shipping_fee: parseInt(req.body?.shipping_fee),
+            step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
             status: 1,
             type_of_auction: 1,
-            image_list: imageUrls
+            image_list: imageUrls,
+            main_image:main_image,
         })
         await request.save();
         res.status(200).json(request)
@@ -126,51 +144,4 @@ exports.getRequestHistoryDetail = async (req, res) => {
     }
 }
 
-exports.upload = async (req, res) => {
-    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
-    let keyFilename = 'key.json'
-    const storage = new Storage({
-        projectId,
-        keyFilename,
-    });
-    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
 
-    try {
-        await processFileMiddleware(req, res);
-        console.log(req.files)
-        if (!req.files || req.files.length === 0) {
-            return res.status(400).send({message: "Please upload at least one file!"});
-        }
-
-        const uploadPromises = req.files.map(file => {
-            const blob = bucket.file(1 + file.originalname);
-            const blobStream = blob.createWriteStream({resumable: false});
-
-            return new Promise((resolve, reject) => {
-                blobStream.on("error", (err) => {
-                    reject(err);
-                });
-
-                blobStream.on("finish", async () => {
-                    const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
-                    resolve({url: publicUrl});
-                });
-                blobStream.end(file.buffer);
-            });
-        });
-
-        Promise.all(uploadPromises)
-            .then(results => {
-                res.status(200).send({
-                    message: "Uploaded the files successfully.",
-                    files: results,
-                });
-            })
-            .catch(err => {
-                res.status(500).send({message: err.message});
-            });
-    } catch (err) {
-        console.log(err)
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
-    }
-}
