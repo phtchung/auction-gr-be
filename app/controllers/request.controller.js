@@ -3,7 +3,6 @@ const Product = require('../models/product.model')
 const Delivery = require('../models/delivery.model')
 const {Storage} = require('@google-cloud/storage')
 const mongoose = require('mongoose')
-const {ObjectId} = require('mongodb')
 const processFile = require("../middlewares/upload");
 const {format} = require("util");
 
@@ -35,9 +34,42 @@ exports.getRequest = async (req, res) => {
 }
 
 exports.createRequest = async (req, res) => {
+    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
+    let keyFilename = 'key.json'
+    const storage = new Storage({
+        projectId,
+        keyFilename,
+    });
+    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
+
     try {
         const userId = req.userId
         const seller_id = new mongoose.Types.ObjectId(userId)
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).send({message: "Please upload at least one file!"});
+        }
+
+        const uploadPromises = req.files.map(file => {
+            const blob = bucket.file(  Date.now()+ userId + file.originalname);
+            const blobStream = blob.createWriteStream(
+                {resumable: false});
+
+            return new Promise((resolve, reject) => {
+                blobStream.on("error", (err) => {
+                    reject(err);
+                });
+                blobStream.on("finish", async () => {
+                    const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                    resolve({url: publicUrl});
+                });
+                blobStream.end(file.buffer);
+            });
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const imageUrls = results.map(item => item.url);
+
         const request = new Request({
             description: req.body.description,
             product_name: req.body.product_name,
@@ -48,11 +80,10 @@ exports.createRequest = async (req, res) => {
             step_price: parseInt(req.body.step_price),
             seller_id: seller_id,
             status: 1,
-            type_of_auction: 1
+            type_of_auction: 1,
+            image_list: imageUrls
         })
-
-        await request.save()
-
+        await request.save();
         res.status(200).json(request)
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
@@ -97,7 +128,6 @@ exports.getRequestHistoryDetail = async (req, res) => {
 
 exports.upload = async (req, res) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
-
     let keyFilename = 'key.json'
     const storage = new Storage({
         projectId,
@@ -106,8 +136,8 @@ exports.upload = async (req, res) => {
     const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
 
     try {
-        await processFile(req, res);
-
+        await processFileMiddleware(req, res);
+        console.log(req.files)
         if (!req.files || req.files.length === 0) {
             return res.status(400).send({message: "Please upload at least one file!"});
         }
@@ -123,9 +153,8 @@ exports.upload = async (req, res) => {
 
                 blobStream.on("finish", async () => {
                     const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
-                    resolve({filename: file.originalname, url: publicUrl});
+                    resolve({url: publicUrl});
                 });
-
                 blobStream.end(file.buffer);
             });
         });
