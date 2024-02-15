@@ -13,6 +13,10 @@ module.exports = function (app) {
 
   app.post('/admin/product/reqList', [authJwt.verifyToken], controller.adminGetRequestList)
 
+  app.get('/admin/request/:requestId', [authJwt.verifyToken], controller.adminGetRequestDetail)
 
+  app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminCreateAuction)
+
+  app.post('/admin/rejectRequest', [authJwt.verifyToken], controller.adminRejectRequest)
 
 }
