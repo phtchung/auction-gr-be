@@ -45,7 +45,7 @@ exports.createRequest = async (req, res) => {
         const userId = req.userId
         const seller_id = new mongoose.Types.ObjectId(userId)
         if (!req.files || req.files.length === 0) {
-            return res.status(400).send({message: "Please upload at least one file!"});
+            return res.status(500).send({message: "Please upload at least one file!"});
         }
 
         //Single file
