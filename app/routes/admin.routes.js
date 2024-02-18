@@ -15,6 +15,10 @@ module.exports = function (app) {
 
   app.post('/admin/product/reqList', [authJwt.verifyToken], controller.adminGetRequestList)
 
+  app.get('/admin/product/biddingCount', [authJwt.verifyToken], controller.adminGetBiddingProductCount)
+
+  app.post('/admin/product/bidList', [authJwt.verifyToken], controller.adminGetBiddingProductList)
+
   app.get('/admin/request/:requestId', [authJwt.verifyToken], controller.adminGetRequestDetail)
 
   // tạo đấu giá từ rq người dùng

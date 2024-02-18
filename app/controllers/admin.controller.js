@@ -4,6 +4,7 @@ const Request = require("../models/request.model");
 const Delivery = require("../models/delivery.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
+const {adminProductStatus} = require("../utils/constant");
 
 
 // API để lấy thông tin cá nhân của người dùng hiện tại
@@ -63,6 +64,70 @@ exports.adminGetRequestList = async (req, res) => {
     }
 }
 
+exports.adminGetBiddingProductList = async (req, res) => {
+    try {
+        const admin_status = adminProductStatus(req.body?.admin_status)
+
+        const adminBiddingList = await Product.find({
+                admin_status: admin_status
+            }).populate('seller_id', 'username phone')
+
+        return res.status(200).json({adminBiddingList, admin_status})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+exports.adminGetBiddingProductCount = async (req, res) => {
+    try {
+        const countNewProduct = await Product.countDocuments({admin_status: 'N',type_of_auction:1})
+
+        const countNewProductMinus = await Product.countDocuments({admin_status: '-N',type_of_auction:-1})
+
+        const countProductBid = await Product.countDocuments({
+            admin_status: 'B'
+        })
+
+        const countProductConfirm = await Product.countDocuments({
+            admin_status: 'C'
+        })
+
+        const countProductSuccess = await Product.countDocuments({
+            admin_status: 'S'
+        })
+        const countProductDelivery = await Product.countDocuments({
+            admin_status: 'D'
+        })
+        const countProductCompleted = await Product.countDocuments({
+            admin_status: 'E'
+        })
+        const countProductCancel = await Product.countDocuments({
+            admin_status: 'R'
+        })
+        const countProductFailure = await Product.countDocuments({
+            admin_status: 'F'
+        })
+        const countProductReturn = await Product.countDocuments({
+            admin_status: 'G'
+        })
+        const countAdminReqTracking = {
+            countNewProduct,
+            countNewProductMinus,
+            countProductBid,
+            countProductConfirm,
+            countProductSuccess,
+            countProductDelivery,
+            countProductCompleted,
+            countProductCancel,
+            countProductFailure,
+            countProductReturn,
+        }
+        res.status(200).json(countAdminReqTracking)
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
 exports.adminGetRequestDetail = async (req, res) => {
     try {
         const requestId = req.params.requestId
@@ -114,7 +179,7 @@ exports.adminCreateAuction = async (req, res) => {
                 description: request?.description,
                 product_name: request?.product_name,
                 category_id: req.body?.category,
-                status: 2,
+                status : 2,
                 rank: request?.rank,
                 reserve_price: parseInt(request?.reserve_price),
                 sale_price: parseInt(request?.sale_price),
@@ -228,7 +293,7 @@ exports.adminCreateProductAution = async (req, res) => {
             shipping_fee: parseInt(req.body?.shipping_fee),
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
-            status: 2,
+            admin_status: req.body.type_of_auction === '1' ? 'N':'-N',
             type_of_auction: req.body?.type_of_auction,
             start_time:req.body?.start_time,
             finish_time:req.body?.finish_time,
