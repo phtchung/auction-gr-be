@@ -26,7 +26,10 @@ const Product = mongoose.model(
             status: {
                 type: Number,
                 enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
-                default: 2
+            },
+            admin_status: {
+                type: String,
+                enum: ['B','-N', 'N', 'S', 'C', 'D', 'E', 'R', 'F', 'G'],
             },
             sale_price: Number,
             reserve_price: Number,
