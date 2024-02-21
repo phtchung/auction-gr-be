@@ -10,4 +10,6 @@ module.exports = function (app) {
   app.post('/auth/signup', [verifySignUp.checkDuplicateEmail, verifySignUp.checkRolesExisted], controller.signup)
 
   app.post('/auth/signin', controller.signin)
+
+  app.post('/admin/auth/signin', controller.adminSignin)
 }
