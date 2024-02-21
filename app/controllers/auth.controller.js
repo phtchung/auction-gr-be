@@ -89,3 +89,41 @@ exports.signin = (req, res) => {
       res.status(500).send({ message: err })
     })
 }
+
+exports.adminSignin = (req, res) => {
+    User.findOne({
+        email: req.body.email
+    })
+        .populate('roles', '-__v')
+        .then((user) => {
+            if (!user || user.roles[0].name !== 'admin') {
+                return res.status(404).send({ message: 'Email not found.' })
+            }
+            var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
+
+            if (!passwordIsValid) {
+                return res.status(401).send({
+                    accessToken: null,
+                    message: 'Invalid Password!'
+                })
+            }
+
+            const token = jwt.sign({ id: user.id }, config.secret, {
+                algorithm: 'HS256',
+                allowInsecureKeySizes: true,
+                expiresIn: 86400 // 24 hours
+            })
+
+            var authorities = user.roles.map((role) => 'ROLE_' + role.name.toUpperCase())
+
+            res.status(200).send({
+                id: user._id,
+                email: user.email,
+                roles: authorities,
+                accessToken: token
+            })
+        })
+        .catch((err) => {
+            res.status(500).send({ message: err })
+        })
+}

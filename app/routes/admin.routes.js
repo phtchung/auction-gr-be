@@ -8,8 +8,7 @@ module.exports = function (app) {
     res.header('Access-Control-Allow-Headers', 'x-access-token, Origin, Content-Type, Accept')
     next()
   })
-
-  app.get('/api/test/admin', [authJwt.verifyToken, authJwt.isAdmin], controller.adminBoard)
+  app.get('/admin/me', [authJwt.verifyToken], controller.getAdminProfile)
 
   app.get('/admin/product/reqCount', [authJwt.verifyToken], controller.adminGetRequestCount)
 
@@ -22,13 +21,14 @@ module.exports = function (app) {
   app.get('/admin/request/:requestId', [authJwt.verifyToken], controller.adminGetRequestDetail)
 
   // tạo đấu giá từ rq người dùng
-  app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminCreateAuction)
+  app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminApproveAuction)
 
   app.post('/admin/rejectRequest', [authJwt.verifyToken], controller.adminRejectRequest)
 
   //tạo rq từ qtv
   app.post('/admin/createProduct', [authJwt.verifyToken],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'files[]', maxCount: 16 }]), controller.adminCreateProductAution)
 
+  app.post('/admin/cancelProduct', [authJwt.verifyToken], controller.adminCancelProduct)
 
 
 }
