@@ -1,7 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
-const {startDataJob, startDataJobAdmin} = require("./cronjob");
+const {startDataJob} = require("./cronjob");
 require('dotenv').config()
 
 // var usersRouter = require('./app/routes/user.routes');
@@ -36,7 +36,7 @@ require('./app/routes/auction.routes')(app)
 // app.use('/users', usersRouter);
 //
 startDataJob()
-startDataJobAdmin()
+
 
 
 

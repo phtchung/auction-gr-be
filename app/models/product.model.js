@@ -17,6 +17,11 @@ const Product = mongoose.model(
                 ref: 'Request'
             },
             product_delivery: {type: mongoose.Schema.Types.Mixed},
+            isDeliInfor : {
+                type: Number,
+                enum: [1,0],
+
+            },
             product_name: String,
             category_id: {
                 type: mongoose.Schema.Types.ObjectId,
@@ -27,9 +32,9 @@ const Product = mongoose.model(
                 type: Number,
                 enum: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
             },
-            admin_status: {
-                type: String,
-                enum: ['B','-N', 'N', 'S', 'C', 'D', 'E', 'R', 'F', 'G'],
+            admin_belong: {
+                type: Number,
+                enum: [0,1],
             },
             sale_price: Number,
             reserve_price: Number,
@@ -41,13 +46,16 @@ const Product = mongoose.model(
             description: String,
             main_image: String,
             delivery_before :Date,
+            //delivevery before dành cho ng bán , phải giao hàng trước thời gian này
             victory_time: Date,
             procedure_complete_time: Date,
             start_time: Date,
             finish_time: Date,
             approved_at: Date,
             request_time:Date,
+            return_time : Date,
             cancel_time:Date,
+            completed_time:Date,
             // approved_at chính là created at của product trong bảng product
             image_list: [String]
         },

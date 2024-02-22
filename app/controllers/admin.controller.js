@@ -48,7 +48,7 @@ exports.adminGetRequestCount = async (req, res) => {
     try {
         const countNewReq = await Request.countDocuments({status: 1})
 
-        const countApproved = await Request.countDocuments({
+        const countApproved = await Product.countDocuments({
             status: 2
         })
 
@@ -80,7 +80,7 @@ exports.adminGetRequestList = async (req, res) => {
         const status = req.body.status
         let adminRequestList
 
-        if (status === 1 || status === 2 || status === 13) {
+        if (status === 1 || status === 13) {
             adminRequestList = await Request.find({
                 status: status
             }).populate('seller_id', 'username phone')
@@ -98,13 +98,22 @@ exports.adminGetRequestList = async (req, res) => {
 
 exports.adminGetBiddingProductList = async (req, res) => {
     try {
-        const admin_status = adminProductStatus(req.body?.admin_status)
+        const status = adminProductStatus(req.body?.status)
 
-        const adminBiddingList = await Product.find({
-                admin_status: admin_status
+        if(status === 34){
+            const adminBiddingList = await Product.find({
+                status: { $in: [3, 4] },
+                admin_belong: 1
             }).populate('seller_id', 'username phone')
 
-        return res.status(200).json({adminBiddingList, admin_status})
+            return res.status(200).json({adminBiddingList, status})
+        }
+        const adminBiddingList = await Product.find({
+                status: status,
+                admin_belong: 1
+            }).populate('seller_id', 'username phone')
+
+        return res.status(200).json({adminBiddingList, status})
     } catch (error) {
         res.status(500).json({message: 'Internal server error' + error})
     }
@@ -112,39 +121,36 @@ exports.adminGetBiddingProductList = async (req, res) => {
 
 exports.adminGetBiddingProductCount = async (req, res) => {
     try {
-        const countNewProduct = await Product.countDocuments({admin_status: 'N',type_of_auction:1})
-
-        const countNewProductMinus = await Product.countDocuments({admin_status: '-N',type_of_auction:-1})
+        const countNewProduct = await Product.countDocuments({status: 2,admin_belong: 1})
 
         const countProductBid = await Product.countDocuments({
-            admin_status: 'B'
+            status: { $in: [3, 4] },admin_belong: 1
         })
 
         const countProductConfirm = await Product.countDocuments({
-            admin_status: 'C'
+            status: 6,admin_belong: 1
         })
 
         const countProductSuccess = await Product.countDocuments({
-            admin_status: 'S'
+            status: 5,admin_belong: 1
         })
         const countProductDelivery = await Product.countDocuments({
-            admin_status: 'D'
+            status: 7,admin_belong: 1
         })
         const countProductCompleted = await Product.countDocuments({
-            admin_status: 'E'
+            status: 8,admin_belong: 1
         })
         const countProductCancel = await Product.countDocuments({
-            admin_status: 'R'
+            status: 11,admin_belong: 1
         })
         const countProductFailure = await Product.countDocuments({
-            admin_status: 'F'
+            status: 10,admin_belong: 1
         })
         const countProductReturn = await Product.countDocuments({
-            admin_status: 'G'
+            status: 9,admin_belong: 1
         })
         const countAdminReqTracking = {
             countNewProduct,
-            countNewProductMinus,
             countProductBid,
             countProductConfirm,
             countProductSuccess,
@@ -174,11 +180,11 @@ exports.adminGetRequestDetail = async (req, res) => {
             return res.status(200).json(newReq)
         }
 
-        const deliData = await Delivery.findOne({
-            product_id: new mongoose.Types.ObjectId(request._id)
-        }).select('address name phone note completed_at')
+        // const deliData = await Delivery.findOne({
+        //     product_id: new mongoose.Types.ObjectId(request._id)
+        // }).select('address name phone note completed_at')
 
-        res.status(200).json({...request._doc, deliData})
+        res.status(200).json({...request._doc})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
@@ -196,7 +202,7 @@ exports.adminApproveAuction = async (req, res) => {
             {
               $set: {
                 status: 2,
-                category_id: req.body?.category,
+                // category_id: req.body?.category,
                 type_of_auction: req.body?.type_of_auction,
                 start_time: req.body?.start_time,
                 finish_time: req.body?.finish_time,
@@ -326,10 +332,12 @@ exports.adminCreateProductAution = async (req, res) => {
             shipping_fee: parseInt(req.body?.shipping_fee),
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
-            admin_status: req.body.type_of_auction === '1' ? 'N':'-N',
+            admin_belong:1 ,
+            status:2,
             type_of_auction: req.body?.type_of_auction,
             start_time:req.body?.start_time,
             finish_time:req.body?.finish_time,
+            request_time:new Date(),
             image_list: imageUrls,
             main_image:main_image,
         })
@@ -349,11 +357,11 @@ exports.adminCancelProduct = async (req, res) => {
 
     const product = await Product.findOneAndUpdate({
             _id: new mongoose.Types.ObjectId(product_id),
-            admin_status: { $in: ['N', '-N'] }
+            status: 2
         },
         {
             $set: {
-                admin_status: 'R',
+                admin_status: 11,
                 cancel_time:cancel_time,
             }
         })
@@ -365,5 +373,35 @@ exports.adminCancelProduct = async (req, res) => {
 
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+
+
+exports.updateStatusByAdmin = async (req, res) => {
+    try {
+        const newStatus = parseInt( req.body.newState)
+        const productId = req.body?.product_id
+        const status = req.body?.state
+        var product
+        console.log(productId)
+        if(status === 5 || status === 6){
+            product = await Product.findOne({
+                admin_belong: 1,
+                _id: new mongoose.Types.ObjectId(productId)
+            })
+        }
+
+        if (!product || product.status !== status) {
+            return res.status(404).json({ message: 'Product not found.' })
+        }
+        if(product && product.status === status){
+            product.status = newStatus
+            await product.save()
+        }
+
+        return res.status(200).json({message:'Update success'})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
     }
 }
