@@ -30,5 +30,6 @@ module.exports = function (app) {
 
   app.post('/admin/cancelProduct', [authJwt.verifyToken], controller.adminCancelProduct)
 
+  app.post('/admin/product/updateStatus', [authJwt.verifyToken, authJwt.isAdmin], controller.updateStatusByAdmin)
 
 }

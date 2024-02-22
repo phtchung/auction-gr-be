@@ -16,18 +16,7 @@ const updateDataUser = async () => {
 
 };
 
-const updateDataAdmin = async () => {
-    const currentTime = new Date();
 
-    await Product.updateMany(
-        {
-            admin_status: { $in: ['N', '-N'] },
-            start_time: { $lt: currentTime }
-        },
-        { $set: { admin_status: 'B' } }
-    );
-
-};
 const startDataJob = () => {
     const job = new cron.schedule(
         '* * * * *', async function() {
@@ -36,14 +25,8 @@ const startDataJob = () => {
 
     job.start();
 };
-const startDataJobAdmin = () => {
-    const job1 = new cron.schedule('* * * * *', async function() {
-        await updateDataAdmin();
-    });
 
-    job1.start();
-};
 
 module.exports = {
-    startDataJob,startDataJobAdmin
+    startDataJob
 };

@@ -225,7 +225,7 @@ exports.getRequestOrderList = async (req, res) => {
         const status = req.body.status
 
         let reqOrderList
-        if (status === 1) {
+        if (status === 1 || status === 13) {
             reqOrderList = await Request.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: status
@@ -272,27 +272,47 @@ exports.updateByWinner = async (req, res) => {
     try {
         const userId = req.userId
         const newStatus =parseInt( req.body.newState)
-        const productId = req.body.product_id
-        const status = req.body.state
+        const productId = req.body?.product_id
+        const status = req.body?.state
         var product
-
-        if(status === 7){
-            product = await Product.findOne({
-                winner_id: new mongoose.Types.ObjectId(userId),
-                _id: new mongoose.Types.ObjectId(productId)
-            })
-        }else if(status === 5 || status === 6){
-            product = await Product.findOne({
-                seller_id: new mongoose.Types.ObjectId(userId),
-                _id: new mongoose.Types.ObjectId(productId)
-            })
+        const now = new Date()
+        if(status === 7 && newStatus === 8 ){
+             product = await Product.findOneAndUpdate({
+                     _id: new mongoose.Types.ObjectId(productId),
+                     winner_id: new mongoose.Types.ObjectId(userId),
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        completed_time:now,
+                    }
+                })
+        }else if(status === 7 || newStatus === 9){
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    winner_id: new mongoose.Types.ObjectId(userId),
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        return_time:now,
+                    }
+                })
+        }
+        else if(status === 5 || status === 6){
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    seller_id: new mongoose.Types.ObjectId(userId),
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        // completed_time:red.body?.completed_time,
+                    }
+                })
         }
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' })
-        }
-        if(product && product.status === status){
-            product.status = newStatus
-            await product.save()
         }
 
         return res.status(200).json({message:'Update success'})
