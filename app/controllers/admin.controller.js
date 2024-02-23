@@ -4,7 +4,7 @@ const Request = require("../models/request.model");
 const Delivery = require("../models/delivery.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
-const {adminProductStatus} = require("../utils/constant");
+const {adminProductStatus, adminRequestStatus} = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 
@@ -77,9 +77,17 @@ exports.adminGetRequestCount = async (req, res) => {
 
 exports.adminGetRequestList = async (req, res) => {
     try {
-        const status = req.body.status
+        const status = adminRequestStatus(req.body?.status)
+
         let adminRequestList
 
+        // if(status === 34){
+        //      adminRequestList = await Product.find({
+        //         status: { $in: [3, 4] },
+        //     }).populate('seller_id', 'username phone')
+        //
+        //     return res.status(200).json({adminRequestList, status})
+        // }
         if (status === 1 || status === 13) {
             adminRequestList = await Request.find({
                 status: status

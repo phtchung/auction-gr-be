@@ -1,6 +1,7 @@
 const Product = require('../models/product.model')
 const mongoose = require('mongoose')
 const Request = require('../models/request.model')
+const {userRequestStatus} = require("../utils/constant");
 
 exports.getAuctionHistory = async (req, res) => {
     try {
@@ -166,7 +167,7 @@ exports.getReqCount = async (req, res) => {
 
         const bidR = await Product.find({
             seller_id: new mongoose.Types.ObjectId(userId),
-            status: 3
+            status: { $in: [3, 4] },
         })
 
         const sucR = await Product.find({
@@ -222,9 +223,16 @@ exports.getReqCount = async (req, res) => {
 exports.getRequestOrderList = async (req, res) => {
     try {
         const userId = req.userId
-        const status = req.body.status
+        const status = userRequestStatus(req.body?.status)
 
         let reqOrderList
+        if(status === 34){
+            reqOrderList = await Product.find({
+                seller_id: new mongoose.Types.ObjectId(userId),
+                status: { $in: [3, 4] },
+            })
+            return res.status(200).json({reqOrderList, status})
+        }
         if (status === 1 || status === 13) {
             reqOrderList = await Request.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
