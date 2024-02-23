@@ -184,7 +184,7 @@ exports.adminGetRequestDetail = async (req, res) => {
 
         const request = await Product.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
-        })
+        }).populate('winner_id','phone name')
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
@@ -395,21 +395,36 @@ exports.updateStatusByAdmin = async (req, res) => {
         const newStatus = parseInt( req.body.newState)
         const productId = req.body?.product_id
         const status = req.body?.state
+        const now = new Date()
         var product
-        console.log(productId)
-        if(status === 5 || status === 6){
-            product = await Product.findOne({
-                admin_belong: 1,
-                _id: new mongoose.Types.ObjectId(productId)
-            })
-        }
 
+        if(status === 5){
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    admin_belong: 1
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.confirm_time': now
+                    }
+                })
+        } else if(status === 6){
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    admin_belong: 1
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.delivery_start_time': now
+                    }
+                })
+        }
         if (!product || product.status !== status) {
             return res.status(404).json({ message: 'Product not found.' })
-        }
-        if(product && product.status === status){
-            product.status = newStatus
-            await product.save()
         }
 
         return res.status(200).json({message:'Update success'})

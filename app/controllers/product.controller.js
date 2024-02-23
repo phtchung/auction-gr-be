@@ -336,7 +336,7 @@ exports.updateByWinner = async (req, res) => {
                     }
                 })
         }
-        if (!product) {
+        if (!product || product.status !== status) {
             return res.status(404).json({ message: 'Product not found.' })
         }
 
