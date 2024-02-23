@@ -23,6 +23,7 @@ module.exports.adminRequestStatus = function(status) {
         status === 2 ||
         status === 3 ||
         status === 13 ||
+        status === 9 ||
         status === 11
     ) {
         return status
