@@ -39,15 +39,14 @@ exports.getSaleHistory = async (req, res) => {
         const userId = req.userId
         const start_time = req.query.start_time
         const finish_time = req.query.finish_time
-
         const products = await Product.find({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: {$in: [8, 11]},
-            'product_delivery.completed_at': {
+            'product_delivery.completed_time': {
                 $gte: new Date(start_time),
                 $lte: new Date(finish_time)
             }
-        }).select(' _id createdAt product_name final_price product_delivery.completed_at shipping_fee request_id status ')
+        }).select(' _id createdAt product_name final_price product_delivery.completed_time shipping_fee request_id status ')
 
         const total = {
             total_sale: products.length,
@@ -292,10 +291,12 @@ exports.updateByWinner = async (req, res) => {
                 {
                     $set: {
                         status: newStatus,
-                        completed_time:now,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.completed_time': now
+
                     }
                 })
-        }else if(status === 7 || newStatus === 9){
+        }else if(status === 7 && newStatus === 9){
             product = await Product.findOneAndUpdate({
                     _id: new mongoose.Types.ObjectId(productId),
                     winner_id: new mongoose.Types.ObjectId(userId),
@@ -303,11 +304,13 @@ exports.updateByWinner = async (req, res) => {
                 {
                     $set: {
                         status: newStatus,
-                        return_time:now,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.return_time': now
+
                     }
                 })
         }
-        else if(status === 5 || status === 6){
+        else if(status === 5){
             product = await Product.findOneAndUpdate({
                     _id: new mongoose.Types.ObjectId(productId),
                     seller_id: new mongoose.Types.ObjectId(userId),
@@ -315,7 +318,21 @@ exports.updateByWinner = async (req, res) => {
                 {
                     $set: {
                         status: newStatus,
-                        // completed_time:red.body?.completed_time,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.confirm_time': now
+
+                    }
+                })
+        } else if(status === 6){
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    seller_id: new mongoose.Types.ObjectId(userId),
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.delivery_start_time': now
                     }
                 })
         }

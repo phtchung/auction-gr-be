@@ -53,9 +53,7 @@ const Product = mongoose.model(
             finish_time: Date,
             approved_at: Date,
             request_time:Date,
-            return_time : Date,
             cancel_time:Date,
-            completed_time:Date,
             // approved_at chính là created at của product trong bảng product
             image_list: [String]
         },

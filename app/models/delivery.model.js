@@ -13,9 +13,10 @@ const Delivery = mongoose.model(
         default: 5
       },
       note: String,
-      completed_at: Date,
-      return_at: Date,
-      delivery_start_at: Date,
+      completed_time: Date,
+      return_time: Date,
+      delivery_start_time: Date,
+        confirm_time:Date,
       payment_method: String
     },
     { timestamps: true }

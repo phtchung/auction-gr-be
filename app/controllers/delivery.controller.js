@@ -9,7 +9,6 @@ exports.createDeliveryInfor = async (req, res) => {
         const product = await Product.findOne({
             _id: new mongoose.Types.ObjectId(req.body.product_id)
         })
-
         if (product.status === 4) {
             const delivery = new Delivery({
                 name: req.body.name,
@@ -24,9 +23,10 @@ exports.createDeliveryInfor = async (req, res) => {
             delete newDlv._id
             const product = await Product.findOneAndUpdate(
                 {
-                    _id: new mongoose.Types.ObjectId(req.body.product_id)
+                    _id: new mongoose.Types.ObjectId(req.body.product_id),
+                    winner_id: new mongoose.Types.ObjectId(userId)
                 },
-                {product_delivery: newDlv, status: 5},
+                {product_delivery: newDlv, status: 5, isDeliInfor:1},
                 {new: true}
             )
 

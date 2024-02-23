@@ -62,12 +62,16 @@ exports.adminGetRequestCount = async (req, res) => {
         const countBidding = await Product.countDocuments({
             status: 3
         })
+        const countReturn = await Product.countDocuments({
+            status: 9
+        })
         const countAdminReqTracking = {
             countNewReq,
             countApproved,
             countReject,
             countCancel,
             countBidding,
+            countReturn
         }
         res.status(200).json(countAdminReqTracking)
     } catch (error) {
@@ -184,7 +188,7 @@ exports.adminGetRequestDetail = async (req, res) => {
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
-            })
+            }).populate('seller_id','point average_rating name')
             return res.status(200).json(newReq)
         }
 
