@@ -481,3 +481,59 @@ exports.adminGetRequestHistory = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
+
+
+exports.adminGetAuctionHistoryList = async (req, res) => {
+    try {
+
+        const start_time = req.query?.start_time
+        const finish_time = req.query?.finish_time
+        const phone = req.query?.phone
+        const df = req.query?.df
+        let products
+
+        if(df === 'true'){
+            products = await Product.find({
+                winner_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong: { $exists: false },
+            }).select('_id product_name status start_time finish_time').populate('seller_id','name')
+        } else if(phone){
+            products = await Product.find({
+                updatedAt: {
+                    $gte: new Date(start_time),
+                    $lte: new Date(finish_time)
+                },
+                winner_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong: { $exists: false },
+            }).select('_id product_name status start_time finish_time').populate('seller_id','name')
+        }else {
+            products = await Product.find({
+                updatedAt: {
+                    $gte: new Date(start_time),
+                    $lte: new Date(finish_time)
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong: { $exists: false },
+            }).select(' _id product_name status start_time finish_time').populate('seller_id','name')
+        }
+
+        const total = {
+            total_product: products.length,
+            total_completed: products.filter((req) => req.status === 8).length,
+            total_failure: products.filter((req) => req.status === 10).length,
+            total_canceled: products.filter((req) => req.status === 11).length,
+            total_returned: products.filter((req) => req.status === 14).length,
+        }
+
+        res.status(200).json({products, total})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
