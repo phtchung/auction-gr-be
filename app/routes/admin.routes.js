@@ -32,4 +32,7 @@ module.exports = function (app) {
 
   app.post('/admin/product/updateStatus', [authJwt.verifyToken, authJwt.isAdmin], controller.updateStatusByAdmin)
 
+  app.post('/admin/request', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetRequestHistory)
+
+
 }

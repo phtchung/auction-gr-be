@@ -25,7 +25,7 @@ exports.getAuctionHistoryDetail = async (req, res) => {
             winner_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(productId)
         })
-            .select('product_name product_delivery rank shipping_fee reserve_price final_price victory_time')
+            .select('product_name main_image product_delivery rank shipping_fee reserve_price final_price victory_time')
             .lean()
 
         res.status(200).json(product)
