@@ -185,6 +185,7 @@ exports.adminGetRequestDetail = async (req, res) => {
         const request = await Product.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
         }).populate('winner_id','phone name')
+            .populate('seller_id','point average_rating name phone')
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
@@ -430,5 +431,53 @@ exports.updateStatusByAdmin = async (req, res) => {
         return res.status(200).json({message:'Update success'})
     } catch (error) {
         res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+
+exports.adminGetRequestHistory = async (req, res) => {
+    try {
+
+        const start_time = req.query?.start_time
+        const finish_time = req.query?.finish_time
+        const phone = req.query?.phone
+        const df = req.query?.df
+        let requests
+
+        if(df === 'true'){
+            requests = await Request.find({
+                seller_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                }
+            }).select('_id createdAt product_name status rank').populate('seller_id','phone name')
+        } else if(phone){
+             requests = await Request.find({
+                 createdAt: {
+                     $gte: new Date(start_time),
+                     $lte: new Date(finish_time)
+                 },
+                seller_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                }
+            }).select('_id createdAt product_name status rank').populate('seller_id','phone name')
+        }else {
+            requests = await Request.find({
+                createdAt: {
+                    $gte: new Date(start_time),
+                    $lte: new Date(finish_time)
+                }
+            }).select(' _id createdAt product_name status rank').populate('seller_id','phone name')
+        }
+
+        const total = {
+            total_request: requests.length,
+            total_pending: requests.filter((req) => req.status === 1).length,
+            total_approved: requests.filter((req) => req.status === 2).length,
+            total_rejected: requests.filter((req) => req.status === 13).length
+        }
+
+        res.status(200).json({requests, total})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
