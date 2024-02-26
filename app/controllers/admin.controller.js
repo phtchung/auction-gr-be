@@ -95,11 +95,11 @@ exports.adminGetRequestList = async (req, res) => {
         if (status === 1 || status === 13) {
             adminRequestList = await Request.find({
                 status: status
-            }).populate('seller_id', 'username phone')
+            }).populate('seller_id', 'username name phone')
         } else {
             adminRequestList = await Product.find({
                 status: status
-            }).populate('seller_id', 'username phone')
+            }).populate('seller_id', 'username name phone')
         }
 
         res.status(200).json({adminRequestList, status})
@@ -483,10 +483,8 @@ exports.adminGetRequestHistory = async (req, res) => {
 }
 
 
-
 exports.adminGetAuctionHistoryList = async (req, res) => {
     try {
-
         const start_time = req.query?.start_time
         const finish_time = req.query?.finish_time
         const phone = req.query?.phone
@@ -522,6 +520,76 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
                 status: { $in : [8,10,11,14]},
                 admin_belong: { $exists: false },
             }).select(' _id product_name status start_time finish_time').populate('seller_id','name')
+        }
+
+        const total = {
+            total_product: products.length,
+            total_completed: products.filter((req) => req.status === 8).length,
+            total_failure: products.filter((req) => req.status === 10).length,
+            total_canceled: products.filter((req) => req.status === 11).length,
+            total_returned: products.filter((req) => req.status === 14).length,
+        }
+
+        res.status(200).json({products, total})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.adminGetRequestHistoryDetail = async (req, res) => {
+    try {
+
+        const requestId = req.params.requestId
+
+        const request = await Request.findOne({
+            _id: new mongoose.Types.ObjectId(requestId),
+            admin_belong: { $exists: false },
+        }).populate('seller_id','point average_rating name phone')
+
+
+        res.status(200).json(request)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.adminGetAdminAuctionCompletedList = async (req, res) => {
+    try {
+        const start_time = req.query?.start_time
+        const finish_time = req.query?.finish_time
+        const phone = req.query?.phone
+        const df = req.query?.df
+        let products
+
+        if(df === 'true'){
+            products = await Product.find({
+                winner_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong: 1,
+            }).select('_id product_name status start_time finish_time')
+        } else if(phone){
+            products = await Product.find({
+                updatedAt: {
+                    $gte: new Date(start_time),
+                    $lte: new Date(finish_time)
+                },
+                winner_id: {
+                    $in: await User.find({ phone: phone }).distinct('_id')
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong:1,
+            }).select('_id product_name status start_time finish_time')
+        }else {
+            products = await Product.find({
+                updatedAt: {
+                    $gte: new Date(start_time),
+                    $lte: new Date(finish_time)
+                },
+                status: { $in : [8,10,11,14]},
+                admin_belong: 1,
+            }).select(' _id product_name status start_time finish_time')
         }
 
         const total = {

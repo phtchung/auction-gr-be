@@ -25,6 +25,7 @@ const startBiddingJob = () => {
     job.start();
 };
 
+// finish đấu giá nhưng bị fail ko ai mua
 const updateFinishBiddingProduct = async () => {
     const currentTime = new Date();
 

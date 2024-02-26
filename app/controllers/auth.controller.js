@@ -57,7 +57,7 @@ exports.signin = (req, res) => {
   })
     .populate('roles', '-__v')
     .then((user) => {
-      if (!user) {
+      if (!user || user.roles[0].name !== 'user') {
         return res.status(404).send({ message: 'Email Not found.' })
       }
 
