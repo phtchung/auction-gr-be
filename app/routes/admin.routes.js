@@ -36,4 +36,8 @@ module.exports = function (app) {
 
   app.post('/admin/auctionHistoryList', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetAuctionHistoryList)
 
+  app.get('/admin/request/history/:requestId', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetRequestHistoryDetail)
+
+  app.post('/admin/adminAuctionCompletedList', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetAdminAuctionCompletedList)
+
 }

@@ -11,7 +11,7 @@ module.exports = function (app) {
 
   app.get('/test/user', [authJwt.verifyToken], controller.userBoard)
 
-  app.get('/me', [authJwt.verifyToken], controller.getMyProfile)
+  app.get('/user/me', [authJwt.verifyToken], controller.getMyProfile)
 
   app.get('/user', [authJwt.verifyToken], controller.getUser)
 
