@@ -40,4 +40,11 @@ module.exports = function (app) {
 
   app.post('/admin/adminAuctionCompletedList', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetAdminAuctionCompletedList)
 
+  app.get('/admin/auctionCompletedDetail/:requestId', [authJwt.verifyToken],authJwt.isAdmin, controller.adminAuctionCompletedDetail)
+
+  app.post('/admin/returnOfUser', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetProductReturnOfUser)
+
+  app.post('/admin/returnOfAdmin', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetProductReturnOfAdmin)
+
+
 }

@@ -40,14 +40,33 @@ module.exports.userRequestStatus = function(status) {
         status === 6 ||
         status === 7 ||
         status === 8 ||
-        status === 10 ||
-        status === 13 ||
-        status === 11
+        status === 13
     ) {
         return status
     }else if(status === 3) {
         return 34
+    }else if(status === 9) {
+        return 914
+    }else if(status === 10) {
+        return 1011
     }else {
         return 1;
+    }
+};
+
+
+
+module.exports.userWinOrderList = function(status) {
+    if (
+        status === 4 ||
+        status === 567 ||
+        status === 8 ||
+        status === 11
+    ) {
+        return status
+    }else if(status === 9) {
+        return 914
+    }else {
+        return 4;
     }
 };

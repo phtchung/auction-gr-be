@@ -41,6 +41,7 @@ const updateFinishBiddingProduct = async () => {
     );
 };
 
+
 const startFinishBiddingJob = () => {
     const job1 = new cron.schedule(
         '* * * * *', async function() {
@@ -49,6 +50,36 @@ const startFinishBiddingJob = () => {
 
     job1.start();
 };
+
+// update finish khi có ng thám gia rồi
+const updateFinishSuccessAuction = async () => {
+    const currentTime = new Date();
+    await Product.updateMany(
+        {
+            status: 3,
+            finish_time: {$lt: currentTime, $exists: true},
+        },
+        [
+            {
+                $set: {
+                    status: 4,
+                    victory_time: "$finish_time",
+                    procedure_complete_time: { $add: ["$finish_time", 2 * 24 * 60 * 60 * 1000] },
+                    isDeliInfor: 0,
+                }
+            }
+        ]
+    );
+};
+const startFinishSuccessAuctionJob = () => {
+    const job2 = new cron.schedule(
+        '* * * * *', async function() {
+            await updateFinishSuccessAuction();
+        });
+
+    job2.start();
+};
+
 module.exports = {
-    startBiddingJob,startFinishBiddingJob
+    startBiddingJob,startFinishBiddingJob,startFinishSuccessAuctionJob
 };
