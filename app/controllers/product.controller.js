@@ -2,6 +2,9 @@ const Product = require('../models/product.model')
 const mongoose = require('mongoose')
 const Request = require('../models/request.model')
 const {userRequestStatus, userWinOrderList} = require("../utils/constant");
+const {Storage} = require("@google-cloud/storage");
+const {format} = require("util");
+
 
 exports.getAuctionHistory = async (req, res) => {
     try {
@@ -332,7 +335,6 @@ exports.updateByWinner = async (req, res) => {
                         status: newStatus,
                         'product_delivery.status': newStatus,
                         'product_delivery.confirm_time': now
-
                     }
                 })
         } else if(status === 6){
@@ -358,3 +360,62 @@ exports.updateByWinner = async (req, res) => {
     }
 }
 
+
+
+exports.UserReturnProduct = async (req, res) => {
+    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
+    let keyFilename = 'key.json'
+    const storage = new Storage({
+        projectId,
+        keyFilename,
+    });
+    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
+
+    try {
+        const userId = req.userId
+        const productId = req.body?.id
+        if (!req.files || req.files.length === 0) {
+            return res.status(500).send({message: "Please upload at least one file!"});
+        }
+
+        //multifile
+        const uploadPromises = req.files.map(file => {
+            const blob = bucket.file(  Date.now()+ userId + file.originalname);
+            const blobStream = blob.createWriteStream(
+                {resumable: false});
+
+            return new Promise((resolve, reject) => {
+                blobStream.on("error", (err) => {
+                    reject(err);
+                });
+                blobStream.on("finish", async () => {
+                    const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                    resolve({url: publicUrl});
+                });
+                blobStream.end(file.buffer);
+            });
+        });
+
+        const results = await Promise.all(uploadPromises);
+        const imageUrls = results.map(item => item.url);
+
+        const returnProduct = await Product.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(productId),
+                winner_id: new mongoose.Types.ObjectId(userId),
+                status : 7
+            },
+            {
+                $set: {
+                    status: 9,
+                    'product_delivery.status': 9,
+                    'product_delivery.return_time': new Date(),
+                    'product_delivery.return_image_list': imageUrls,
+                    'product_delivery.return_reason':req.body?.return_reason,
+                }
+            })
+        await returnProduct.save();
+        res.status(200).json(returnProduct)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}

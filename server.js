@@ -33,6 +33,8 @@ require('./app/routes/request.routes')(app)
 require('./app/routes/delivery.routes')(app)
 require('./app/routes/auction.routes')(app)
 
+
+
 // app.use('/users', usersRouter);
 
 startBiddingJob()
