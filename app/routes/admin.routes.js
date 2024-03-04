@@ -46,5 +46,6 @@ module.exports = function (app) {
 
   app.post('/admin/returnOfAdmin', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetProductReturnOfAdmin)
 
+  app.post('/admin/acceptReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.acceptReturnProduct)
 
 }

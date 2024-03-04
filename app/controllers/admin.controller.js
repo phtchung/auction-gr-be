@@ -728,3 +728,30 @@ exports.adminGetProductReturnOfAdmin = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
+
+exports.acceptReturnProduct = async (req, res) => {
+    try {
+
+        const productId = req.body?.product_id
+        const product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    status: 9
+                },
+                {
+                    $set: {
+                        status: 14,
+                        'product_delivery.status': 14,
+                        'product_delivery.approve_return_time': new Date()
+                    }
+                })
+
+        if (!product || product.status !== 9) {
+            return res.status(404).json({message: 'Product not found.'})
+        }
+
+        return res.status(200).json({message: 'Update success'})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}

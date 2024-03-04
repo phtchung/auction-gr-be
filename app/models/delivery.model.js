@@ -16,6 +16,7 @@ const Delivery = mongoose.model(
             completed_time: Date,
             return_time: Date,
             delivery_start_time: Date,
+            approve_return_time:Date,
             confirm_time: Date,
             payment_method: String,
             return_reason: String,
