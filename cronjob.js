@@ -58,6 +58,8 @@ const updateFinishSuccessAuction = async () => {
         {
             status: 3,
             finish_time: {$lt: currentTime, $exists: true},
+            final_price: { $exists: true },
+            winner_id: { $exists: true }
         },
         [
             {
