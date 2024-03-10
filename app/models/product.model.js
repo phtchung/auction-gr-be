@@ -45,6 +45,20 @@ const Product = mongoose.model(
             type_of_auction: Number,
             description: String,
             main_image: String,
+            brand:String,
+            is_used:{
+                type:Number,
+                enum:[0,1],
+            },
+            auction_live:{
+                type:Number,
+                enum:[0,1],
+            },
+            delivery_from:String,
+            can_return:{
+                type:Number,
+                enum:[0,1],
+            },
             delivery_before :Date,
             //delivevery before dành cho ng bán , phải giao hàng trước thời gian này
             victory_time: Date,

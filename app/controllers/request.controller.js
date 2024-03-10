@@ -98,6 +98,10 @@ exports.createRequest = async (req, res) => {
             seller_id: seller_id,
             status: 1,
             type_of_auction: 1,
+            is_used : parseInt(req.body?.is_used),
+            brand:req.body.brand ? req.body.brand : null,
+            delivery_from:req.body?.delivery_from,
+            can_return:parseInt(req.body?.can_return),
             image_list: imageUrls,
             main_image:main_image,
         })
