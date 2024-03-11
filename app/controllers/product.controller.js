@@ -419,3 +419,27 @@ exports.UserReturnProduct = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
+
+exports.getAuctionProductDetail = async (req, res) => {
+    try {
+        const Id = req.params.productId
+
+        const  auctionProduct = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(Id),
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date(), $exists: true},
+        }).populate('seller_id category_id request_id', 'name average_rating username product_done_count rate_count point phone createdAt')
+
+        if (!auctionProduct) {
+            return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
+        }
+
+        res.status(200).json(auctionProduct)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+

@@ -8,4 +8,8 @@ module.exports = function (app) {
   })
 
   app.get('/bidding', [authJwt.verifyToken], controller.getBiddingList)
+
+  app.post('/auction/bid', [authJwt.verifyToken], controller.createProductBid)
+
+  app.get('/auction/bidCount/:productId', controller.getAuctionProductBidCount)
 }
