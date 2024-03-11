@@ -16,7 +16,6 @@ exports.createDeliveryInfor = async (req, res) => {
                 address: req.body.address,
                 phone: req.body.phone,
                 status: 5,
-                note: req.body.note,
                 _id: new mongoose.Types.ObjectId(req.body.product_id)
             })
             const newDlv = await delivery.save()
