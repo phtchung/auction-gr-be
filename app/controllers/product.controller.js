@@ -144,6 +144,10 @@ exports.getWinOrderDetail = async (req, res) => {
             winner_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(productId)
         }).populate('seller_id category_id', 'name phone')
+        if (!product){
+
+            return res.status(404).json('Không tìm thấy sản phẩm')
+        }
 
         res.status(200).json(product)
     } catch (err) {

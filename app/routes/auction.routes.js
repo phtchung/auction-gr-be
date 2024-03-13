@@ -12,4 +12,10 @@ module.exports = function (app) {
   app.post('/auction/bid', [authJwt.verifyToken], controller.createProductBid)
 
   app.get('/auction/bidCount/:productId', controller.getAuctionProductBidCount)
+
+  app.post('/auction/buy', [authJwt.verifyToken], controller.createProductBuy)
+
+  app.get('/auction/seller/:seller', controller.getProductOfSeller)
+
+
 }
