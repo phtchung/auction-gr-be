@@ -1,5 +1,5 @@
 {
-  "name": "agritech-be-new",
+  "name": "aution-be",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
@@ -9,7 +9,7 @@
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx}\"",
     "lint:prettier": "prettier --check ."
   },
-  "author": "Huy0110",
+  "author": "ptchung",
   "license": "ISC",
   "dependencies": {
     "@faker-js/faker": "^8.3.1",

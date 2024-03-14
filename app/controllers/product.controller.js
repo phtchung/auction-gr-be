@@ -75,10 +75,10 @@ exports.getWinOrderList = async (req, res) => {
                 winner_id: new mongoose.Types.ObjectId(userId),
                 status: {$in: [5, 6, 7]}
             })
-        }else if(status === 914){
+        }else if(status === 91415){
             winOrderList = await Product.find({
                 winner_id: new mongoose.Types.ObjectId(userId),
-                status: {$in: [9, 14]}
+                status: {$in: [9, 14,15]}
             })
         }
         else {
@@ -119,7 +119,7 @@ exports.getWinCount = async (req, res) => {
         })
         const ReW = await Product.find({
             winner_id: new mongoose.Types.ObjectId(userId),
-            status: {$in: [9, 14]}
+            status: {$in: [9, 14,15]}
         })
         const countWin = {
             count_AucW: AucW.length,
@@ -198,7 +198,7 @@ exports.getReqCount = async (req, res) => {
         })
         const count_retR = await Product.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
-            status: { $in: [9, 14] },
+            status: { $in: [9, 14,15] },
         })
         const count_rejR = await Request.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
@@ -237,10 +237,10 @@ exports.getRequestOrderList = async (req, res) => {
             })
             return res.status(200).json({reqOrderList, status})
         }
-        if(status === 914){
+        if(status === 91415){
             reqOrderList = await Product.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
-                status: { $in: [9,14] },
+                status: { $in: [9,14,15] },
             })
             return res.status(200).json({reqOrderList, status})
         }

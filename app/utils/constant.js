@@ -46,7 +46,7 @@ module.exports.userRequestStatus = function(status) {
     }else if(status === 3) {
         return 34
     }else if(status === 9) {
-        return 914
+        return 91415
     }else if(status === 10) {
         return 1011
     }else {
@@ -65,7 +65,7 @@ module.exports.userWinOrderList = function(status) {
     ) {
         return status
     }else if(status === 9) {
-        return 914
+        return 91415
     }else {
         return 4;
     }

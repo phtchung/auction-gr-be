@@ -37,7 +37,10 @@ exports.getBiddingList = async (req, res) => {
         ])
         const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.product_id) : []
 
-        const data = await Product.find({_id: {$in: products}})
+        const data = await Product.find(
+            {_id: {$in: products},
+                status:3},
+        )
             .select('product_name _id rank start_time reserve_price seller_id finish_time main_image')
             .populate('seller_id', 'name average_rating')
             .lean()
@@ -113,10 +116,6 @@ exports.getAuctionProductBidCount = async (req, res) => {
         const  bidCount = await Auction.countDocuments({
             product_id: new mongoose.Types.ObjectId(Id),
         })
-
-        if (!bidCount) {
-            return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
-        }
 
         res.status(200).json({bidCount : bidCount})
     } catch (err) {
