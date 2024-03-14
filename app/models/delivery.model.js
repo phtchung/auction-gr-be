@@ -9,7 +9,7 @@ const Delivery = mongoose.model(
             phone: String,
             status: {
                 type: Number,
-                enum: [5, 6, 7, 8, 9, 10, 11, 12],
+                enum: [5, 6, 7, 8, 9, 10, 11, 12,14,15],
                 default: 5
             },
             note: String,
@@ -17,6 +17,7 @@ const Delivery = mongoose.model(
             return_time: Date,
             delivery_start_time: Date,
             approve_return_time:Date,
+            deny_return_time:Date,
             confirm_time: Date,
             payment_method: String,
             return_reason: String,
