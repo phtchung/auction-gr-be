@@ -48,7 +48,10 @@ module.exports = function (app) {
 
   app.post('/admin/acceptReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.acceptReturnProduct)
 
-  app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.DenyReturnProduct)
+  app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.denyReturnProduct)
+
+  app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.array('singlefile[]',2), controller.createBlog)
+
 
 
 }

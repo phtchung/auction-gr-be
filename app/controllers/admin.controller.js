@@ -7,6 +7,7 @@ const {format} = require("util");
 const {adminProductStatus, adminRequestStatus} = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
+const Blog = require("../models/blog.model");
 
 
 // API để lấy thông tin cá nhân của người dùng hiện tại
@@ -764,7 +765,7 @@ exports.acceptReturnProduct = async (req, res) => {
     }
 }
 
-exports.DenyReturnProduct = async (req, res) => {
+exports.denyReturnProduct = async (req, res) => {
     try {
         const productId = req.body?.product_id
         const product = await Product.findOneAndUpdate({
@@ -786,5 +787,57 @@ exports.DenyReturnProduct = async (req, res) => {
         return res.status(200).json({message: 'Update success'})
     } catch (error) {
         res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+exports.createBlog = async (req, res) => {
+    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
+    let keyFilename = 'key.json'
+    const storage = new Storage({
+        projectId,
+        keyFilename,
+    });
+    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
+
+    try {
+        const adminId = req.userId
+        if (!req.files || req.files.length === 0) {
+            return res.status(500).send({message: "Please upload at least one file!"});
+        }
+        console.log(req.files)
+
+        //Single file
+        const uploadMainImagePromise = new Promise((resolve, reject) => {
+            const blob = bucket.file('admin' + Date.now() + adminId + req.files[0].originalname);
+            const blobStream = blob.createWriteStream({resumable: false});
+
+            blobStream.on("error", (err) => {
+                reject(err);
+            });
+
+            blobStream.on("finish", async () => {
+                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                resolve({url: publicUrl});
+            });
+            blobStream.end(req.files[0].buffer);
+        });
+
+        const rs = await uploadMainImagePromise;
+        const sub_image = rs.url
+
+        const blog = new Blog({
+            author:new mongoose.Types.ObjectId(adminId),
+            title: req.body?.title,
+            content: req.body?.content,
+            subtitle1:req.body?.subtitle1,
+            subtitle2:req.body.subtitle2 ? req.body.subtitle2 : null,
+            subtitle3:req.body.subtitle3 ? req.body.subtitle3 : null,
+            sub_image: sub_image,
+        })
+        await blog.save();
+
+        res.status(200).json(blog)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
