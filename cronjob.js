@@ -83,5 +83,5 @@ const startFinishSuccessAuctionJob = () => {
 };
 
 module.exports = {
-    startBiddingJob,startFinishBiddingJob,startFinishSuccessAuctionJob
+    startBiddingJob
 };

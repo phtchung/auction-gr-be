@@ -17,5 +17,6 @@ module.exports = function (app) {
 
   app.get('/auction/seller/:seller', controller.getProductOfSeller)
 
+  app.post('/auction/finish', controller.finishAuctionProduct)
 
 }

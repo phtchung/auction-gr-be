@@ -13,6 +13,7 @@ db.delivery = require('./delivery.model')
 db.category = require('./category.model')
 db.request = require('./request.model')
 db.auction = require('./auction.model')
+db.blog = require('./blog.model')
 
 db.ROLES = ['user', 'admin']
 
