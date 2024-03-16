@@ -1,4 +1,5 @@
 const controller = require('../controllers/blog.controller')
+const {authJwt} = require("../middlewares");
 
 module.exports = function (app) {
     app.use(function (req, res, next) {
@@ -7,5 +8,7 @@ module.exports = function (app) {
     })
 
     app.get('/articles', controller.getBlogs)
+
+    app.get('/articles/:id', controller.getBlogDetail)
 
 }
