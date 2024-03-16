@@ -806,9 +806,8 @@ exports.createBlog = async (req, res) => {
         }
         console.log(req.files)
 
-        //Single file
         const uploadMainImagePromise = new Promise((resolve, reject) => {
-            const blob = bucket.file('admin' + Date.now() + adminId + req.files[0].originalname);
+            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile[]'][0].originalname);
             const blobStream = blob.createWriteStream({resumable: false});
 
             blobStream.on("error", (err) => {
@@ -819,11 +818,28 @@ exports.createBlog = async (req, res) => {
                 const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
                 resolve({url: publicUrl});
             });
-            blobStream.end(req.files[0].buffer);
+            blobStream.end(req.files['singlefile[]'][0].buffer);
         });
 
         const rs = await uploadMainImagePromise;
-        const sub_image = rs.url
+        const main_image = rs.url
+
+        const uploadMainImagePromise1 = new Promise((resolve, reject) => {
+            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile_sub[]'][0].originalname);
+            const blobStream = blob.createWriteStream({resumable: false});
+
+            blobStream.on("error", (err) => {
+                reject(err);
+            });
+
+            blobStream.on("finish", async () => {
+                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                resolve({url: publicUrl});
+            });
+            blobStream.end(req.files['singlefile_sub[]'][0].buffer);
+        });
+        const rs1 = await uploadMainImagePromise1;
+        const sub_image = rs1.url
 
         const blog = new Blog({
             author:new mongoose.Types.ObjectId(adminId),
@@ -833,6 +849,7 @@ exports.createBlog = async (req, res) => {
             subtitle2:req.body.subtitle2 ? req.body.subtitle2 : null,
             subtitle3:req.body.subtitle3 ? req.body.subtitle3 : null,
             sub_image: sub_image,
+            image:main_image
         })
         await blog.save();
 

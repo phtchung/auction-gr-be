@@ -50,7 +50,7 @@ module.exports = function (app) {
 
   app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.denyReturnProduct)
 
-  app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.array('singlefile[]',2), controller.createBlog)
+  app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'singlefile_sub[]', maxCount: 1 }]), controller.createBlog)
 
 
 
