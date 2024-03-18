@@ -312,9 +312,18 @@ exports.updateByWinner = async (req, res) => {
                         status: newStatus,
                         'product_delivery.status': newStatus,
                         'product_delivery.completed_time': now
-
                     }
                 })
+             await User.findOneAndUpdate({
+                 _id: new mongoose.Types.ObjectId(userId),
+             },
+                 [
+                     {
+                         $set: {
+                             point: { $add: ["$point", 100] },
+                         }
+                     }
+                 ])
         }else if(status === 7 && newStatus === 9){
             product = await Product.findOneAndUpdate({
                     _id: new mongoose.Types.ObjectId(productId),
