@@ -2,7 +2,9 @@ const mongoose = require('mongoose')
 const Product = require('../models/product.model')
 const Auction = require('../models/auction.model')
 const User = require("../models/user.model");
-
+const Delivery = require("../models/delivery.model");
+const crypto = require("crypto");
+require('dotenv').config()
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -232,6 +234,146 @@ exports.finishAuctionProduct = async (req, res) => {
             await product.save()
         }
         res.status(200).json({message: 'Cập nhật trạng thái thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+exports.checkoutProduct = async (req, res) => {
+    try {
+        const userId = req.userId
+        const product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(req.body.product_id)
+        })
+        if (product.status === 4) {
+            // = 0 tiền mặt , bằng 1 : momo , bằng 2 : vnpay
+            if(req.body?.payment_method === '0'){
+                const delivery = new Delivery({
+                    name: req.body.name,
+                    payment_method: "Tiền mặt",
+                    address: req.body.address,
+                    phone: req.body.phone,
+                    status: 5,
+                    _id: new mongoose.Types.ObjectId(req.body.product_id)
+                })
+                const newDlv = await delivery.save()
+                delete newDlv._id
+                const product = await Product.findOneAndUpdate(
+                    {
+                        _id: new mongoose.Types.ObjectId(req.body.product_id),
+                        winner_id: new mongoose.Types.ObjectId(userId)
+                    },
+                    {product_delivery: newDlv, status: 5, isDeliInfor:1},
+                    {new: true}
+                )
+                return res.status(200).json({message: 'Thành công',payUrl :process.env.redirectUrl})
+            }else if(req.body?.payment_method === '1'){
+            //     thanh toán momo
+                var partnerCode = process.env.partnerCode
+                var accessKey = process.env.accessKey;
+                var secretkey = process.env.SECRETKEY1
+                // chuỗi ngẫu nhiên để phân biệt cái request
+                var requestId = partnerCode + new Date().getTime() + "id";
+                // mã đặt đơn
+                var orderId = new Date().getTime() + ":0123456778";
+                //
+                var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
+                // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
+                var redirectUrl = process.env.redirectUrl;
+                // Trang thank you
+                var ipnUrl = process.env.ipnUrl
+                // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
+                var amount = product.final_price
+                // var requestType = "payWithATM";
+                // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
+                var requestType = "captureWallet";
+                var extraData = "hello"; //pass empty value if your merchant does not have stores
+
+                var rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}` +
+                    `&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}` +
+                    `&requestId=${requestId}&requestType=${requestType}`;
+
+                var signature = crypto
+                    .createHmac('sha256',secretkey)
+                    .update(rawSignature)
+                    .digest("hex")
+
+            const requestBody = JSON.stringify({
+                partnerCode: partnerCode,
+                accessKey: accessKey,
+                requestId: requestId,
+                amount: amount,
+                orderId: orderId,
+                orderInfo: orderInfo,
+                redirectUrl: redirectUrl,
+                ipnUrl: ipnUrl,
+                extraData: extraData,
+                requestType: requestType,
+                signature: signature,
+                lang: "vi",
+            })
+
+            const https = require("https");
+            const options = {
+                hostname: "test-payment.momo.vn",
+                port: 443,
+                path: "/v2/gateway/api/create",
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(requestBody),
+                },
+            };
+            const reqq = https.request(options, (resMom) => {
+                var url =''
+                var rsCode
+                console.log(`Status: ${resMom.statusCode}`);
+                // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
+                resMom.setEncoding("utf8");
+                // trả về body là khi mình call momo
+                resMom.on("data", (body) => {
+                    let parsedBody = JSON.parse(body)
+                    url += parsedBody.payUrl
+                    rsCode = parsedBody.resultCode
+                    // resultCode = parsedBody.resultCode
+                    // url dẫn đến tranh toán của momo
+                    console.log('bd',parsedBody);
+                    // res.json({ payUrl: url, rsCode: rsCode });
+                });
+                resMom.on("end",  async () => {
+                    if(rsCode === 0){
+                        const delivery = new Delivery({
+                            name: req.body.name,
+                            payment_method: "Tiền mặt",
+                            address: req.body.address,
+                            phone: req.body.phone,
+                            status: 5,
+                            _id: new mongoose.Types.ObjectId(req.body.product_id)
+                        })
+                        const newDlv = await delivery.save()
+                        delete newDlv._id
+                        const product = await Product.findOneAndUpdate(
+                            {
+                                _id: new mongoose.Types.ObjectId(req.body.product_id),
+                                winner_id: new mongoose.Types.ObjectId(userId)
+                            },
+                            {product_delivery: newDlv, status: 5, isDeliInfor:1},
+                            {new: true}
+                        )
+                    }
+                    res.json({message: 'Thành công', payUrl: url});
+                    console.log("No more data in response.update xong");
+                });
+            });
+
+            reqq.on("error", (e) => {
+                console.log(`problem with request: ${e.message}`);
+                return res.status(500).json({ error: 'Internal Server Error' });
+            })
+            console.log("Sending....");
+            reqq.write(requestBody);
+            reqq.end();
+            }
+        }
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

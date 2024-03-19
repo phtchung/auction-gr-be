@@ -19,4 +19,7 @@ module.exports = function (app) {
 
   app.post('/auction/finish', controller.finishAuctionProduct)
 
+  app.post('/auction/checkout', [authJwt.verifyToken], controller.checkoutProduct)
+
+
 }
