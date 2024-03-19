@@ -334,7 +334,6 @@ exports.updateByWinner = async (req, res) => {
                         status: newStatus,
                         'product_delivery.status': newStatus,
                         'product_delivery.return_time': now
-
                     }
                 })
         }
