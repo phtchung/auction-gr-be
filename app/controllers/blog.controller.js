@@ -1,6 +1,5 @@
 const mongoose = require('mongoose')
 const Blog = require('../models/blog.model')
-const Role = require("../models/role.model");
 
 
 exports.getBlogs = async (req, res) => {

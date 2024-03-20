@@ -33,6 +33,7 @@ require('./app/routes/request.routes')(app)
 require('./app/routes/delivery.routes')(app)
 require('./app/routes/auction.routes')(app)
 require('./app/routes/blog.routes')(app)
+require('./app/routes/review.routes')(app)
 
 
 
