@@ -1,7 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
-const { startBiddingJob} = require("./cronjob");
+const { startBiddingJob, startUpdateDeliveryJob} = require("./cronjob");
 require('dotenv').config()
 
 // var usersRouter = require('./app/routes/user.routes');
@@ -40,6 +40,7 @@ require('./app/routes/review.routes')(app)
 // app.use('/users', usersRouter);
 
 startBiddingJob()
+startUpdateDeliveryJob()
 
 
 // set port, listen for requests

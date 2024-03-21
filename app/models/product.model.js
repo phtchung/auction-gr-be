@@ -72,6 +72,11 @@ const Product = mongoose.model(
             image_list: [String],
             is_review : Number,
             review_before:Date,
+            get_point :{
+                type: Number,
+                enum: [0,1],
+                default : 0
+            },
         },
         {timestamps: true}
     )

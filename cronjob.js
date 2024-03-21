@@ -1,5 +1,7 @@
 const cron = require('node-cron');
 const Product = require("./app/models/product.model");
+const User = require("./app/models/user.model");
+
 
 
 const updateBiddingProduct = async () => {
@@ -82,6 +84,50 @@ const startFinishSuccessAuctionJob = () => {
     job2.start();
 };
 
+const doneDelivery = async () => {
+     await Product.updateMany(
+        {
+            status: 7,
+            'product_delivery.delivery_start_time': { $lt : new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+            'product_delivery.completed_time': { $exists: false }
+        },
+        [
+            {
+                $set: {
+                    status: 8,
+                    'product_delivery.status': 8,
+                    'product_delivery.completed_time': new Date(),
+
+                }
+            }
+        ]
+    );
+    const updatedProducts = await Product.find({
+        status: 8,
+        'product_delivery.delivery_start_time': { $lt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)},
+        get_point : 0
+    });
+
+    await User.updateMany({
+            _id: { $in: updatedProducts.map(product => product.seller_id) },
+                },
+        { $inc: { point: 100 } }
+    );
+    await Product.updateMany({
+            _id: { $in: updatedProducts.map(product => product._id) },
+        },
+        { get_point: 1 }
+    );
+};
+const startUpdateDeliveryJob = () => {
+    const job4 = new cron.schedule(
+        '0 0,12 * * *', async function() {
+            await doneDelivery();
+        });
+    job4.start();
+};
+
+
 module.exports = {
-    startBiddingJob
+    startBiddingJob,startUpdateDeliveryJob
 };
