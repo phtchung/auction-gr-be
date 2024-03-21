@@ -5,6 +5,10 @@ const User = require("../models/user.model");
 const Delivery = require("../models/delivery.model");
 const crypto = require("crypto");
 require('dotenv').config()
+const axios = require('axios')
+const CryptoJS = require('crypto-js'); // npm install crypto-js
+const {v1:uuid} = require('uuid'); // npm install uuid
+const moment = require('moment');
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -64,7 +68,6 @@ exports.getBiddingList = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
-
 
 exports.createProductBid = async (req, res) => {
 
@@ -238,6 +241,7 @@ exports.finishAuctionProduct = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
 exports.checkoutProduct = async (req, res) => {
     try {
         const userId = req.userId
@@ -336,14 +340,14 @@ exports.checkoutProduct = async (req, res) => {
                     rsCode = parsedBody.resultCode
                     // resultCode = parsedBody.resultCode
                     // url dẫn đến tranh toán của momo
-                    console.log('bd',parsedBody);
+
                     // res.json({ payUrl: url, rsCode: rsCode });
                 });
                 resMom.on("end",  async () => {
                     if(rsCode === 0){
                         const delivery = new Delivery({
                             name: req.body.name,
-                            payment_method: "Tiền mặt",
+                            payment_method: "Momo",
                             address: req.body.address,
                             phone: req.body.phone,
                             status: 5,
@@ -359,6 +363,7 @@ exports.checkoutProduct = async (req, res) => {
                             {product_delivery: newDlv, status: 5, isDeliInfor:1},
                             {new: true}
                         )
+
                     }
                     res.json({message: 'Thành công', payUrl: url});
                     console.log("No more data in response.update xong");
@@ -372,6 +377,72 @@ exports.checkoutProduct = async (req, res) => {
             console.log("Sending....");
             reqq.write(requestBody);
             reqq.end();
+            }
+
+            else if(req.body?.payment_method === '2'){
+                const config = {
+                    appid: process.env.appid,
+                    key1: process.env.key1,
+                    key2: process.env.key2,
+                    endpoint: process.env.endpoint,
+                };
+                const embeddata = {
+                    "promotioninfo":"","merchantinfo":"embeddata123",
+                    "redirecturl": process.env.redirectUrl
+                };
+
+                const order = {
+                    appid: config.appid,
+                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
+                    appuser: "demo",
+                    apptime: Date.now(), // miliseconds
+                    item: "[]",
+                    embeddata: JSON.stringify(embeddata),
+                    amount: product.final_price + product.shipping_fee,
+                    description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
+                    bankcode:"zalopayapp",
+                };
+
+                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
+                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
+
+                var returnUrl = ''
+                var returncode = 0
+                 await axios.post(config.endpoint, null, { params: order })
+                    .then(res => {
+                        console.log(res.data);
+                        returnUrl += res.data.orderurl
+                       returncode +=res.data.returncode
+                    })
+                    .catch(err => console.log(err));
+
+                if(returncode === 1){
+                    const delivery = new Delivery({
+                        name: req.body.name,
+                        payment_method: "Zalopay",
+                        address: req.body.address,
+                        phone: req.body.phone,
+                        status: 5,
+                        _id: new mongoose.Types.ObjectId(req.body.product_id)
+                    })
+
+                    const newDlv = await delivery.save()
+                    delete newDlv._id
+
+                    const product1 = await Product.findOneAndUpdate(
+                        {
+                            _id: new mongoose.Types.ObjectId(req.body.product_id),
+                            winner_id: new mongoose.Types.ObjectId(userId)
+                        },{
+                            $set: {
+                                product_delivery: newDlv,
+                                status: 5,
+                                isDeliInfor:1
+                            },
+                        },{new: true}
+                    )
+                }
+                res.status(200).json({message: 'Thành công', payUrl: returnUrl});
             }
         }
     } catch (err) {
