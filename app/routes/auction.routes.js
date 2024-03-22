@@ -19,7 +19,14 @@ module.exports = function (app) {
 
   app.post('/auction/finish', controller.finishAuctionProduct)
 
+  // thanh toán api xong nma chưa ghép
   app.post('/auction/checkout', [authJwt.verifyToken], controller.checkoutProduct)
 
+  app.get('/auction/topSeller', controller.getTopSeller)
 
+  app.get('/auction/product1k', controller.getProduct1k)
+
+  app.get('/auction/productRare', controller.getRareProduct)
+
+  app.get('/auction/prepareToEnd', controller.getProductPrepareEnd)
 }
