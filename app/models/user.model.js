@@ -15,6 +15,7 @@ const User = mongoose.model(
             date_of_birth: Date,
             active: Boolean,
             address: String,
+            avatar:String,
             product_done_count: Number,
             // số lượng người đánh giá
             rate_count:Number,

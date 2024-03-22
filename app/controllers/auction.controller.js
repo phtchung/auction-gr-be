@@ -449,3 +449,80 @@ exports.checkoutProduct = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
+exports.getTopSeller = async (req, res) => {
+    try {
+        const users = await User.aggregate([
+            { $match:
+                    { average_rating: { $gt: 4 },
+                        roles: { $elemMatch: { $eq: new mongoose.Types.ObjectId(process.env.userid) } }}
+            },
+            { $limit: 6 },
+            { $sort: { 'product_done_count': -1 } },// Giới hạn chỉ lấy 6 kết quả đầu tiên
+            { $project: { _id: 1,username:1, completed_orders: 1, name : 1,product_done_count: 1,average_rating:1,avatar: 1 } } // Chỉ lấy ra user_id và số đơn hàng hoàn thành
+        ])
+
+        res.status(200).json( users)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getProduct1k = async (req, res) => {
+    try {
+        const products = await Product.aggregate([
+            { $match:
+                    { reserve_price: { $lt: 1000 },
+                        status : 3,
+                        finish_time: {$gt: new Date(), $exists: true},
+                    }
+            },
+            { $limit: 10 },
+            { $sort: { 'reserve_price': 1 }},
+            { $project: { _id: 1, product_name : 1,reserve_price: 1,main_image: 1 } }
+        ])
+
+        res.status(200).json(products)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getRareProduct = async (req, res) => {
+    try {
+        const products = await Product.aggregate([
+            { $match:
+                    {
+                        status : 3,
+                        finish_time: {$gt: new Date(), $exists: true},
+                    }
+            },
+            { $sort: { 'reserve_price': -1 }},
+            { $limit: 10 },
+            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1 }}
+        ])
+
+        res.status(200).json(products)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getProductPrepareEnd = async (req, res) => {
+    try {
+        const products = await Product.aggregate([
+            { $match:
+                    {
+                        status : 3,
+                        finish_time: { $lt : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
+                    }
+            },
+            { $limit: 10 },
+            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1,finish_time:1 } }
+        ])
+
+        res.status(200).json(products)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
