@@ -8,6 +8,8 @@ const {adminProductStatus, adminRequestStatus} = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Blog = require("../models/blog.model");
+const Categories = require("../models/category.model");
+
 
 
 // API để lấy thông tin cá nhân của người dùng hiện tại
@@ -854,6 +856,145 @@ exports.createBlog = async (req, res) => {
         await blog.save();
 
         res.status(200).json(blog)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.createCategory = async (req, res) => {
+    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
+    let keyFilename = 'key.json'
+    const storage = new Storage({
+        projectId,
+        keyFilename,
+    });
+    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
+
+    try {
+        const adminId = req.userId
+        if (!req.files || req.files.length === 0) {
+            return res.status(500).send({message: "Please upload at least one file!"});
+        }
+        console.log(req.files)
+
+        const uploadMainImagePromise = new Promise((resolve, reject) => {
+            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile[]'][0].originalname);
+            const blobStream = blob.createWriteStream({resumable: false});
+
+            blobStream.on("error", (err) => {
+                reject(err);
+            });
+
+            blobStream.on("finish", async () => {
+                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
+                resolve({url: publicUrl});
+            });
+            blobStream.end(req.files['singlefile[]'][0].buffer);
+        });
+
+        const rs = await uploadMainImagePromise;
+        const main_image = rs.url
+
+        const category = new Categories({
+            name: req.body?.name,
+            image:main_image,
+        })
+        await category.save();
+
+        res.status(200).json(category)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getCategories = async (req, res) => {
+    try {
+         const categories = await Categories.find({
+             parent: {$eq: null, $exists: true},
+
+            })
+        res.status(200).json({categories})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+exports.createChildCategory = async (req, res) => {
+    try {
+        const parentId = req.params.id
+        const category = new Categories({
+            name: req.body?.name,
+            parent : new mongoose.Types.ObjectId(parentId)
+        })
+        await category.save();
+
+        res.status(200).json(category)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getCategoriesChild = async (req, res) => {
+    try {
+        const parentID = req.params.id
+        const categories = await Categories.find({
+            parent: new mongoose.Types.ObjectId(parentID),
+        })
+        res.status(200).json({categories})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+exports.getcategoryParent = async (req, res) => {
+    try {
+        const parentID = req.params.id
+        const categories = await Categories.find({
+            _id: new mongoose.Types.ObjectId(parentID),
+        })
+        res.status(200).json({categories})
+    } catch (error) {
+        res.status(500).json({message: 'Internal server error' + error})
+    }
+}
+
+exports.editCategory = async (req, res) => {
+    try {
+        let category
+        if(req.body.status === 0 || req.body.status === 1 ){
+             category = await Categories.findOneAndUpdate({
+                _id :  new mongoose.Types.ObjectId(req.body?.category_id) ,
+            },{
+                $set : {
+                    status : req.body?.status
+                }
+            })
+        }else if(req.body.name){
+            category = await Categories.findOneAndUpdate({
+                _id :  new mongoose.Types.ObjectId(req.body?.category_id) ,
+            },{
+                $set : {
+                    name : req.body?.name
+                }
+            })
+        }
+
+        res.status(200).json(category)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+
+exports.deleteCategory = async (req, res) => {
+    try {
+         if(!req.params.id)   {
+             return  res.status(404).json({message : 'Không tìm thấy danh mục sản phẩm'})
+         }
+         await Categories.findOneAndDelete({
+                _id :  new mongoose.Types.ObjectId(req.params.id) ,
+            })
+        res.status(200).json({message : ' Thành công'})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
