@@ -52,6 +52,20 @@ module.exports = function (app) {
 
   app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'singlefile_sub[]', maxCount: 1 }]), controller.createBlog)
 
+  app.post('/admin/createCategories', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }]), controller.createCategory)
+
+  app.get('/admin/categories', [authJwt.verifyToken,authJwt.isAdmin], controller.getCategories)
+
+  // category con thêm mới
+  app.post('/category/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.createChildCategory)
+
+  app.get('/admin/categoryChild/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.getCategoriesChild)
+
+  app.get('/admin/categoryParent/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.getcategoryParent)
+
+  app.put('/admin/category', [authJwt.verifyToken,authJwt.isAdmin], controller.editCategory)
+
+  app.delete('/admin/category/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.deleteCategory)
 
 
 }

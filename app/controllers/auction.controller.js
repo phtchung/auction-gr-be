@@ -250,7 +250,7 @@ exports.checkoutProduct = async (req, res) => {
         })
         if (product.status === 4) {
             // = 0 tiền mặt , bằng 1 : momo , bằng 2 : vnpay
-            if(req.body?.payment_method === '0'){
+            if(req.body?.payment_method === 0){
                 const delivery = new Delivery({
                     name: req.body.name,
                     payment_method: "Tiền mặt",
@@ -270,7 +270,7 @@ exports.checkoutProduct = async (req, res) => {
                     {new: true}
                 )
                 return res.status(200).json({message: 'Thành công',payUrl :process.env.redirectUrl})
-            }else if(req.body?.payment_method === '1'){
+            }else if(req.body?.payment_method === 1){
             //     thanh toán momo
                 var partnerCode = process.env.partnerCode
                 var accessKey = process.env.accessKey;
@@ -286,7 +286,7 @@ exports.checkoutProduct = async (req, res) => {
                 // Trang thank you
                 var ipnUrl = process.env.ipnUrl
                 // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
-                var amount = product.final_price
+                var amount = product.final_price + product.shipping_fee
                 // var requestType = "payWithATM";
                 // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
                 var requestType = "captureWallet";
@@ -330,7 +330,6 @@ exports.checkoutProduct = async (req, res) => {
             const reqq = https.request(options, (resMom) => {
                 var url =''
                 var rsCode
-                console.log(`Status: ${resMom.statusCode}`);
                 // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
                 resMom.setEncoding("utf8");
                 // trả về body là khi mình call momo
@@ -366,20 +365,18 @@ exports.checkoutProduct = async (req, res) => {
 
                     }
                     res.json({message: 'Thành công', payUrl: url});
-                    console.log("No more data in response.update xong");
                 });
             });
 
             reqq.on("error", (e) => {
-                console.log(`problem with request: ${e.message}`);
                 return res.status(500).json({ error: 'Internal Server Error' });
             })
-            console.log("Sending....");
+
             reqq.write(requestBody);
             reqq.end();
             }
 
-            else if(req.body?.payment_method === '2'){
+            else if(req.body?.payment_method === 2){
                 const config = {
                     appid: process.env.appid,
                     key1: process.env.key1,

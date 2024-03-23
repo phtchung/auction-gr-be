@@ -60,7 +60,8 @@ exports.getUser = async (req, res) => {
       phone: user.phone,
       point: user.point,
       gender: user?.gender,
-      date_of_birth: user?.date_of_birth
+      date_of_birth: user?.date_of_birth,
+      avatar:user?.avatar
     }
 
     res.status(200).json(userWithoutPassword)
