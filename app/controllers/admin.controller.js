@@ -188,12 +188,12 @@ exports.adminGetRequestDetail = async (req, res) => {
 
         const request = await Product.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
-        }).populate('winner_id', 'phone name')
+        }).populate('winner_id category_id', 'phone name')
             .populate('seller_id', 'point average_rating name phone')
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
-            }).populate('seller_id', 'point average_rating name')
+            }).populate('seller_id category_id', 'point average_rating name')
             return res.status(200).json(newReq)
         }
 
@@ -344,7 +344,7 @@ exports.adminCreateProductAution = async (req, res) => {
         const imageUrls = results.map(item => item.url);
 
         const product = new Product({
-            // category_id:new mongoose.Types.ObjectId(req.body?.category_id),
+            category_id:new mongoose.Types.ObjectId(req.body?.category),
             description: req.body?.description,
             product_name: req.body?.product_name,
             rank: req.body?.rank,
