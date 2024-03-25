@@ -1,6 +1,10 @@
 const Product = require('../models/product.model')
 const mongoose = require('mongoose')
 const Request = require('../models/request.model')
+const  Categories= require('../models/category.model')
+const  User = require('../models/user.model')
+
+
 const {userRequestStatus, userWinOrderList} = require("../utils/constant");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
@@ -307,13 +311,18 @@ exports.updateByWinner = async (req, res) => {
                      _id: new mongoose.Types.ObjectId(productId),
                      winner_id: new mongoose.Types.ObjectId(userId),
                 },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.completed_time': now
-                    }
-                })
+                 [
+                     {
+                         $set: {
+                             status: newStatus,
+                             'product_delivery.status': newStatus,
+                             'product_delivery.completed_time': now,
+                             is_review : 0,
+                             review_before: { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] },
+                         }
+                     }
+                 ]
+                )
              await User.findOneAndUpdate({
                  _id: new mongoose.Types.ObjectId(userId),
              },
@@ -442,13 +451,16 @@ exports.getAuctionProductDetail = async (req, res) => {
             status: 3,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date(), $exists: true},
-        }).populate('seller_id category_id request_id', 'name average_rating username product_done_count rate_count point phone createdAt')
+        }).populate('seller_id category_id request_id', 'name average_rating parent  username product_done_count rate_count point phone createdAt')
 
         if (!auctionProduct) {
             return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
         }
+        const parent = await Categories.findOne({
+            _id : auctionProduct.category_id.parent
+        }).select('_id name')
 
-        res.status(200).json(auctionProduct)
+        res.status(200).json({...auctionProduct._doc,parent})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

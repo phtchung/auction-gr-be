@@ -3,12 +3,15 @@ const Product = require('../models/product.model')
 const Auction = require('../models/auction.model')
 const User = require("../models/user.model");
 const Delivery = require("../models/delivery.model");
+const Categories = require("../models/category.model");
 const crypto = require("crypto");
 require('dotenv').config()
 const axios = require('axios')
 const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
+const Blog = require("../models/blog.model");
+const {ne} = require("@faker-js/faker");
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -207,7 +210,6 @@ exports.getProductOfSeller = async (req, res) => {
                 } else {
                     products[i] = {...products[i]._doc, count: 0}
                 }
-
             }
         }
 
@@ -521,5 +523,114 @@ exports.getProductPrepareEnd = async (req, res) => {
         res.status(200).json(products)
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getCategories = async (req, res) => {
+    try {
+        const categories = await Categories.find({
+            status : 1 ,
+        })
+
+        let parentCategories = categories.filter(category => !category.parent);
+
+        let result = parentCategories.map(parent => ({
+            ...parent._doc,
+                children: []
+        }))
+
+        result.forEach(parentCategory => {
+            // console.log("here: ",categories.filter(category => category.parent && category.parent.toString() === parentCategory._id.toString()) )
+            parentCategory.children = categories.filter(category => category.parent && category.parent.toString() === parentCategory._id.toString());
+
+        });
+
+        res.status(200).json(result)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getCategoryDetail = async (req, res) => {
+    try {
+        const id = req.params.id
+        const category = await Categories.findById(id).select('_id  name')
+
+        if (!category) {
+            return res.status(404).json({ message: 'Không tìm thấy danh mục sản phẩm.' })
+        }
+        let rs = {...category._doc , children: [] }
+
+        rs.children = await Categories.find(
+            {
+                parent : category._id
+            }
+        )
+
+        res.status(200).json(rs)
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+exports.getProductsByFilter = async (req, res) => {
+    try {
+        const id = req.params.id
+        const category = await Categories.findById(id).select('_id  name')
+
+        if (!category) {
+            return res.status(404).json({ message: 'Không tìm thấy danh mục sản phẩm.' })
+        }
+
+        const childs = await Categories.find({
+            parent : new mongoose.Types.ObjectId(category._id)
+        })
+
+        const products = await Product.find({
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+            category_id: { $in: childs.map(child => child._id) }
+        })
+
+        if (products.length !== 0) {
+            for (let i = 0; i < products.length; i++) {
+                const count = await Auction.aggregate([
+                    {$match: {product_id: products[i]._id}},
+                    {$group: {_id: "$product_id", count: {$sum: 1}}}
+                ]);
+                if (count.length > 0) {
+                    products[i] = {...products[i]._doc, ...count[0]}
+                } else {
+                    products[i] = {...products[i]._doc, count: 0}
+                }
+            }
+        }
+
+        res.status(200).json(products)
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+exports.getRalatedProduct = async (req, res) => {
+    try {
+        const id = req.params.id
+        const product = await Product.findById(id).select('_id category_id ')
+
+        if (!product) {
+            return res.status(404).json({ message: 'Không tìm thấy sản phẩm đấu giá.' })
+        }
+
+        const relatedProducts = await Product.find({
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+            category_id: product.category_id,
+            _id : {$ne : product._id}
+        }).select('_id main_image finish_time product_name final_price reserve_price category_id')
+
+        res.status(200).json(relatedProducts)
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
     }
 }

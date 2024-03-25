@@ -97,7 +97,8 @@ const doneDelivery = async () => {
                     status: 8,
                     'product_delivery.status': 8,
                     'product_delivery.completed_time': new Date(),
-
+                    is_review:0,
+                    review_before: { $add: ["$victory_time", 20 * 24 * 60 * 60 * 1000] },
                 }
             }
         ]

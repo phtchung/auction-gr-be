@@ -29,4 +29,13 @@ module.exports = function (app) {
   app.get('/auction/productRare', controller.getRareProduct)
 
   app.get('/auction/prepareToEnd', controller.getProductPrepareEnd)
+
+  app.get('/categories', controller.getCategories)
+
+  app.get('/category/:id', controller.getCategoryDetail)
+
+  app.post('/home/category/:id', controller.getProductsByFilter)
+
+  app.get('/auction/relatedItem/:id', controller.getRalatedProduct)
+
 }
