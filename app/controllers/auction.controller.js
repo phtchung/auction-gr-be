@@ -133,7 +133,7 @@ exports.getAuctionProductBidCount = async (req, res) => {
     }
 }
 
-exports.createProductBuy = async (req, res) => {
+exports.BuyProduct = async (req, res) => {
 
     try {
         const userId = req.userId
@@ -141,32 +141,29 @@ exports.createProductBuy = async (req, res) => {
         const productId = req.body.productId
         const winner_id = new mongoose.Types.ObjectId(userId)
 
-        const product = await Product.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(productId),
-                status: 3,
-                start_time: {$lt: new Date()},
-                finish_time: {$gt: new Date()},
-                seller_id: {$ne: winner_id},
-                $or: [
-                    {sale_price: parseInt(req.body.final_price)},
-                    {final_price: {$exists: false}},
-                ],
-            },
-            [
-                {
-                    $set: {
-                        status: 4,
-                        final_price: req.body.final_price,
-                        winner_id: winner_id,
-                        victory_time: new Date(),
-                        isDeliInfor: 0,
-                        procedure_complete_time: {$add: ["$finish_time", 2 * 24 * 60 * 60 * 1000]},
-                    }
-                }]
-        )
-        if (!product) {
-            return res.status(404).json({message: 'Không đủ điều kiện mua sản phẩm'})
-        } else {
+        const product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+            seller_id: {$ne: winner_id},
+            $or: [
+                {sale_price: parseInt(req.body.final_price)},
+                {final_price: {$exists: false}},
+            ],
+        })
+        if (product) {
+            product.status = 4
+            product.victory_time = new Date()
+            product.final_price =  req.body.final_price
+            product.isDeliInfor = 0
+            product.winner_id = winner_id
+            const temp = new Date(product.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            product.procedure_complete_time = temp
+            await product.save()
+
             const bid = new Auction({
                 product_id: new mongoose.Types.ObjectId(productId),
                 user: new mongoose.Types.ObjectId(userId),
@@ -175,6 +172,8 @@ exports.createProductBuy = async (req, res) => {
                 bid_time: new Date(),
             })
             await bid.save();
+        }else {
+            return res.status(404).json({message: 'Không đủ điều kiện mua sản phẩm'})
         }
 
         res.status(200).json({message: 'Thực hiện trả giá thành công'})
@@ -232,7 +231,10 @@ exports.finishAuctionProduct = async (req, res) => {
             product.status = 4
             product.victory_time = product.finish_time
             product.isDeliInfor = 0
-            product.procedure_complete_time = new Date(product.finish_time).setDate(new Date(product.finish_time).getDate() + 2)
+            const temp = new Date(product.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            product.procedure_complete_time = temp
             await product.save()
         }else {
             product.status = 10

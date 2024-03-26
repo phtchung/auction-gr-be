@@ -8,7 +8,10 @@ const Request = mongoose.model(
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'User'
             },
-            category_id: String,
+            category_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Category'
+            },
             product_name: String,
             status: {
                 type: Number,

@@ -3,7 +3,6 @@ const Product = require("./app/models/product.model");
 const User = require("./app/models/user.model");
 
 
-
 const updateBiddingProduct = async () => {
     const currentTime = new Date();
 
@@ -17,40 +16,12 @@ const updateBiddingProduct = async () => {
     );
 
 };
-
 const startBiddingJob = () => {
     const job = new cron.schedule(
         '* * * * *', async function() {
         await updateBiddingProduct();
     });
-
     job.start();
-};
-
-// finish đấu giá nhưng bị fail ko ai mua
-const updateFinishBiddingProduct = async () => {
-    const currentTime = new Date();
-
-    // Cập nhật trường status
-    await Product.updateMany(
-        {
-            status: 3,
-            finish_time: { $lt: currentTime },
-            final_price: { $exists: false },
-            winner_id: { $exists: false }
-        },
-        { $set: { status: 10 } },
-    );
-};
-
-
-const startFinishBiddingJob = () => {
-    const job1 = new cron.schedule(
-        '* * * * *', async function() {
-            await updateFinishBiddingProduct();
-        });
-
-    job1.start();
 };
 
 // update finish khi có ng thám gia rồi
@@ -128,7 +99,36 @@ const startUpdateDeliveryJob = () => {
     job4.start();
 };
 
+// hủy đơn khi quá hạn điền thông tin
+const cancelDelivery = async () => {
+    await Product.updateMany(
+        {
+            status: 4,
+            isDeliInfor:0,
+            procedure_complete_time: { $lt : new Date() },
+            product_delivery: { $exists: false }
+        },
+        [
+            {
+                $set: {
+                    status: 11,
+                    cancel_time:new Date()
+                }
+            }
+        ]
+    );
+//     còn đoạn trừ điểm người dùng nữa
+
+};
+
+const cancelDeliveryJob = () => {
+    const job5 = new cron.schedule(
+        '* * * * *', async function() {
+            await cancelDelivery();
+        });
+    job5.start();
+};
 
 module.exports = {
-    startBiddingJob,startUpdateDeliveryJob
+    startBiddingJob,startUpdateDeliveryJob,cancelDeliveryJob
 };
