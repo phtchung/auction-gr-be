@@ -219,7 +219,7 @@ exports.adminApproveAuction = async (req, res) => {
             {
                 $set: {
                     status: 2,
-                    // category_id: req.body?.category,
+                    category_id: new mongoose.Types.ObjectId(req.body?.category),
                     type_of_auction: req.body?.type_of_auction,
                     start_time: req.body?.start_time,
                     finish_time: req.body?.finish_time,
@@ -233,7 +233,7 @@ exports.adminApproveAuction = async (req, res) => {
                 request_id: request?._id,
                 description: request?.description,
                 product_name: request?.product_name,
-                category_id: req.body?.category,
+                category_id: new mongoose.Types.ObjectId(req.body?.category),
                 status: 2,
                 rank: request?.rank,
                 reserve_price: parseInt(request?.reserve_price),
@@ -555,7 +555,7 @@ exports.adminGetRequestHistoryDetail = async (req, res) => {
         const request = await Request.findOne({
             _id: new mongoose.Types.ObjectId(requestId),
             admin_belong: {$exists: false},
-        }).populate('seller_id', 'point average_rating name phone')
+        }).populate('seller_id category_id', 'point average_rating name phone')
 
 
         res.status(200).json(request)
@@ -624,7 +624,7 @@ exports.adminAuctionCompletedDetail = async (req, res) => {
         const request = await Product.findOne({
             _id: new mongoose.Types.ObjectId(requestId),
             admin_belong: 1
-        }).populate('winner_id', 'phone name')
+        }).populate('winner_id category_id', 'phone name')
 
         res.status(200).json({...request._doc})
     } catch (err) {
