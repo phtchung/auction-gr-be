@@ -21,7 +21,7 @@ module.exports = function (app) {
   app.get('/admin/request/:requestId', [authJwt.verifyToken], controller.adminGetRequestDetail)
 
   // tạo đấu giá từ rq người dùng
-  app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminApproveAuction)
+  app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminApproveAuctionController)
 
   app.post('/admin/rejectRequest', [authJwt.verifyToken], controller.adminRejectRequest)
 
@@ -50,7 +50,7 @@ module.exports = function (app) {
 
   app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.denyReturnProduct)
 
-  app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'singlefile_sub[]', maxCount: 1 }]), controller.createBlog)
+  app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'singlefile_sub[]', maxCount: 1 }]), controller.createBlogController)
 
   app.post('/admin/createCategories', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }]), controller.createCategory)
 

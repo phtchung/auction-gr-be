@@ -9,10 +9,10 @@ const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Blog = require("../models/blog.model");
 const Categories = require("../models/category.model");
+const sse = require("../sse/index")
+const {createBlog} = require("../service/blog.service");
+const {adminApproveAuction} = require("../service/admin.service");
 
-
-
-// API để lấy thông tin cá nhân của người dùng hiện tại
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
 }
@@ -208,56 +208,18 @@ exports.adminGetRequestDetail = async (req, res) => {
 }
 
 
-exports.adminApproveAuction = async (req, res) => {
-    try {
-
-        const request_id = req.body?.rq_id
-        const request = await Request.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(request_id),
-                status: 1
-            },
-            {
-                $set: {
-                    status: 2,
-                    category_id: new mongoose.Types.ObjectId(req.body?.category),
-                    type_of_auction: req.body?.type_of_auction,
-                    start_time: req.body?.start_time,
-                    finish_time: req.body?.finish_time,
-                }
-            })
-
-        if (!request) {
-            return res.status(500).json({message: 'Không tìm thấy yêu cầu đấu giá!'})
-        } else {
-            const product = new Product({
-                request_id: request?._id,
-                description: request?.description,
-                product_name: request?.product_name,
-                category_id: new mongoose.Types.ObjectId(req.body?.category),
-                status: 2,
-                rank: request?.rank,
-                reserve_price: parseInt(request?.reserve_price),
-                sale_price: parseInt(request?.sale_price),
-                shipping_fee: parseInt(request?.shipping_fee),
-                step_price: parseInt(request?.step_price),
-                seller_id: request?.seller_id,
-                type_of_auction: req.body?.type_of_auction,
-                is_used : request?.is_used,
-                brand:request.brand ? request.brand : null,
-                delivery_from:request?.delivery_from,
-                can_return:request?.can_return,
-                image_list: request?.image_list,
-                start_time: req.body?.start_time,
-                finish_time: req.body?.finish_time,
-                main_image: request?.main_image,
-                request_time: request?.createdAt,
-            })
-            await product.save();
-            return res.status(200).json({data: product, message: 'Tạo phiên đấu giá thành công'})
+exports.adminApproveAuctionController = async (req, res) => {
+    const result = await adminApproveAuction(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Yêu cầu được duyệt',
+            content : `Yêu cầu ${result.data.request_id.toString()} vừa được quản trị viên phê duyệt .Sản phẩm sẽ được đấu giá vào lúc ...`,
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
         }
-
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `approveProduct_${result.data.seller_id.toString()}`);
     }
 }
 
@@ -374,7 +336,6 @@ exports.adminCreateProductAution = async (req, res) => {
     }
 }
 
-
 exports.adminCancelProduct = async (req, res) => {
     try {
         const product_id = req.body?.req_id
@@ -400,7 +361,6 @@ exports.adminCancelProduct = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
-
 
 exports.updateStatusByAdmin = async (req, res) => {
     try {
@@ -444,7 +404,6 @@ exports.updateStatusByAdmin = async (req, res) => {
         res.status(500).json({message: 'Internal server error' + error})
     }
 }
-
 
 exports.adminGetRequestHistory = async (req, res) => {
     try {
@@ -492,7 +451,6 @@ exports.adminGetRequestHistory = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
-
 
 exports.adminGetAuctionHistoryList = async (req, res) => {
     try {
@@ -632,7 +590,6 @@ exports.adminAuctionCompletedDetail = async (req, res) => {
     }
 }
 
-
 exports.adminGetProductReturnOfUser = async (req, res) => {
     try {
         const start_time = req.query?.start_time
@@ -740,7 +697,6 @@ exports.adminGetProductReturnOfAdmin = async (req, res) => {
     }
 }
 
-
 exports.acceptReturnProduct = async (req, res) => {
     try {
 
@@ -792,74 +748,21 @@ exports.denyReturnProduct = async (req, res) => {
     }
 }
 
-exports.createBlog = async (req, res) => {
-    let projectId = process.env.PROJECT_ID // Get this from Google Cloud
-    let keyFilename = 'key.json'
-    const storage = new Storage({
-        projectId,
-        keyFilename,
-    });
-    const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
-
-    try {
-        const adminId = req.userId
-        if (!req.files || req.files.length === 0) {
-            return res.status(500).send({message: "Please upload at least one file!"});
+exports.createBlogController = async (req, res) => {
+    const result = await createBlog(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Bài viết mới',
+            content : `Bài đăng ${result.data[0].title} vừa được ra mắt`,
+            url :'',
+            type : 0,
+            receiver : [],
         }
-        console.log(req.files)
-
-        const uploadMainImagePromise = new Promise((resolve, reject) => {
-            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile[]'][0].originalname);
-            const blobStream = blob.createWriteStream({resumable: false});
-
-            blobStream.on("error", (err) => {
-                reject(err);
-            });
-
-            blobStream.on("finish", async () => {
-                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
-                resolve({url: publicUrl});
-            });
-            blobStream.end(req.files['singlefile[]'][0].buffer);
-        });
-
-        const rs = await uploadMainImagePromise;
-        const main_image = rs.url
-
-        const uploadMainImagePromise1 = new Promise((resolve, reject) => {
-            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile_sub[]'][0].originalname);
-            const blobStream = blob.createWriteStream({resumable: false});
-
-            blobStream.on("error", (err) => {
-                reject(err);
-            });
-
-            blobStream.on("finish", async () => {
-                const publicUrl = format(`https://storage.googleapis.com/${bucket.name}/${blob.name}`);
-                resolve({url: publicUrl});
-            });
-            blobStream.end(req.files['singlefile_sub[]'][0].buffer);
-        });
-        const rs1 = await uploadMainImagePromise1;
-        const sub_image = rs1.url
-
-        const blog = new Blog({
-            author:new mongoose.Types.ObjectId(adminId),
-            title: req.body?.title,
-            content: req.body?.content,
-            subtitle1:req.body?.subtitle1,
-            subtitle2:req.body.subtitle2 ? req.body.subtitle2 : null,
-            subtitle3:req.body.subtitle3 ? req.body.subtitle3 : null,
-            sub_image: sub_image,
-            image:main_image
-        })
-        await blog.save();
-
-        res.status(200).json(blog)
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, "newBlog");
     }
-}
+};
+
 
 exports.createCategory = async (req, res) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
@@ -984,7 +887,6 @@ exports.editCategory = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
-
 
 exports.deleteCategory = async (req, res) => {
     try {

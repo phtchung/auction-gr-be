@@ -12,6 +12,8 @@ const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
 const Blog = require("../models/blog.model");
 const {ne} = require("@faker-js/faker");
+const sse = require("../sse");
+const {BuyProduct} = require("../service/auction.service");
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -133,58 +135,23 @@ exports.getAuctionProductBidCount = async (req, res) => {
     }
 }
 
-exports.BuyProduct = async (req, res) => {
-
-    try {
-        const userId = req.userId
-        const username = req.username
-        const productId = req.body.productId
-        const winner_id = new mongoose.Types.ObjectId(userId)
-
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(productId),
-            status: 3,
-            start_time: {$lt: new Date()},
-            finish_time: {$gt: new Date()},
-            seller_id: {$ne: winner_id},
-            $or: [
-                {sale_price: parseInt(req.body.final_price)},
-                {final_price: {$exists: false}},
-            ],
-        })
-        if (product) {
-            product.status = 4
-            product.victory_time = new Date()
-            product.final_price =  req.body.final_price
-            product.isDeliInfor = 0
-            product.winner_id = winner_id
-            const temp = new Date(product.finish_time);
-            temp.setDate(temp.getDate() + 2);
-            temp.setHours(23, 59, 59, 999);
-            product.procedure_complete_time = temp
-            await product.save()
-
-            const bid = new Auction({
-                product_id: new mongoose.Types.ObjectId(productId),
-                user: new mongoose.Types.ObjectId(userId),
-                username: username,
-                bid_price: parseInt(req.body?.final_price),
-                bid_time: new Date(),
-            })
-            await bid.save();
-        }else {
-            return res.status(404).json({message: 'Không đủ điều kiện mua sản phẩm'})
+exports.BuyProductController = async (req, res) => {
+    const result = await BuyProduct(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Đấu giá thành công',
+            content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-
-        res.status(200).json({message: 'Thực hiện trả giá thành công'})
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
     }
 }
 
 exports.getProductOfSeller = async (req, res) => {
     try {
-
         const seller = req.params.seller
         const user = await User.findOne({
             username: seller
