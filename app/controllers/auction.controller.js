@@ -13,7 +13,7 @@ const moment = require('moment');
 const Blog = require("../models/blog.model");
 const {ne} = require("@faker-js/faker");
 const sse = require("../sse");
-const {BuyProduct} = require("../service/auction.service");
+const {BuyProduct, finishAuctionProduct} = require("../service/auction.service");
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -185,34 +185,38 @@ exports.getProductOfSeller = async (req, res) => {
     }
 }
 
-exports.finishAuctionProduct = async (req, res) => {
-    try {
-        const productId = req.body.productId
-
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(productId),
-            status: 3,
-            start_time: {$lt: new Date()},
-        })
-        if (product.winner_id && product.final_price && product.reserve_price < product.final_price) {
-            product.status = 4
-            product.victory_time = product.finish_time
-            product.isDeliInfor = 0
-            const temp = new Date(product.finish_time);
-            temp.setDate(temp.getDate() + 2);
-            temp.setHours(23, 59, 59, 999);
-            product.procedure_complete_time = temp
-            await product.save()
-        }else {
-            product.status = 10
-            await product.save()
+exports.finishAuctionProductController = async (req, res) => {
+    const result = await finishAuctionProduct(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Đấu giá thành công',
+            content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-        res.status(200).json({message: 'Cập nhật trạng thái thành công'})
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `buySuccess1_${result.data.winner_id.toString()}`);
     }
 }
 
+// exports.checkoutProductController = async (req, res) => {
+//     const result = await checkoutProduct(req);
+//     // const { error, message, statusCode, payUrl } = result;
+//     // const newRs = { error, message, statusCode, payUrl };
+//     console.log('rs',result);
+//     res.status(result.statusCode).json(result);
+//     if (!result.error) {
+//         const data = {
+//             title : 'Đấu giá thành công',
+//             content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công.Mau xác nhận đơn hàng thôi!`,
+//             url :'',
+//             type : 1,
+//             receiver : [result.data.seller_id],
+//         }
+//         sse.send( data, `auctionSuccess_${result.data.seller_id.toString()}`);
+//     }
+// }
 exports.checkoutProduct = async (req, res) => {
     try {
         const userId = req.userId
@@ -242,7 +246,7 @@ exports.checkoutProduct = async (req, res) => {
                 )
                 return res.status(200).json({message: 'Thành công',payUrl :process.env.redirectUrl})
             }else if(req.body?.payment_method === 1){
-            //     thanh toán momo
+                //     thanh toán momo
                 var partnerCode = process.env.partnerCode
                 var accessKey = process.env.accessKey;
                 var secretkey = process.env.SECRETKEY1
@@ -257,7 +261,7 @@ exports.checkoutProduct = async (req, res) => {
                 // Trang thank you
                 var ipnUrl = process.env.ipnUrl
                 // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
-                var amount = product.final_price + product.shipping_fee
+                var amount = product.final_price
                 // var requestType = "payWithATM";
                 // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
                 var requestType = "captureWallet";
@@ -272,79 +276,81 @@ exports.checkoutProduct = async (req, res) => {
                     .update(rawSignature)
                     .digest("hex")
 
-            const requestBody = JSON.stringify({
-                partnerCode: partnerCode,
-                accessKey: accessKey,
-                requestId: requestId,
-                amount: amount,
-                orderId: orderId,
-                orderInfo: orderInfo,
-                redirectUrl: redirectUrl,
-                ipnUrl: ipnUrl,
-                extraData: extraData,
-                requestType: requestType,
-                signature: signature,
-                lang: "vi",
-            })
+                const requestBody = JSON.stringify({
+                    partnerCode: partnerCode,
+                    accessKey: accessKey,
+                    requestId: requestId,
+                    amount: amount,
+                    orderId: orderId,
+                    orderInfo: orderInfo,
+                    redirectUrl: redirectUrl,
+                    ipnUrl: ipnUrl,
+                    extraData: extraData,
+                    requestType: requestType,
+                    signature: signature,
+                    lang: "vi",
+                })
 
-            const https = require("https");
-            const options = {
-                hostname: "test-payment.momo.vn",
-                port: 443,
-                path: "/v2/gateway/api/create",
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(requestBody),
-                },
-            };
-            const reqq = https.request(options, (resMom) => {
-                var url =''
-                var rsCode
-                // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
-                resMom.setEncoding("utf8");
-                // trả về body là khi mình call momo
-                resMom.on("data", (body) => {
-                    let parsedBody = JSON.parse(body)
-                    url += parsedBody.payUrl
-                    rsCode = parsedBody.resultCode
-                    // resultCode = parsedBody.resultCode
-                    // url dẫn đến tranh toán của momo
+                const https = require("https");
+                const options = {
+                    hostname: "test-payment.momo.vn",
+                    port: 443,
+                    path: "/v2/gateway/api/create",
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Content-Length": Buffer.byteLength(requestBody),
+                    },
+                };
+                const reqq = https.request(options, (resMom) => {
+                    console.log('bbsdr')
+                    var url =''
+                    var rsCode
+                    console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
+                    resMom.setEncoding("utf8");
+                    // trả về body là khi mình call momo
+                    resMom.on("data", (body) => {
+                        let parsedBody = JSON.parse(body)
+                        url += parsedBody.payUrl
+                        rsCode = parsedBody.resultCode
+                        // resultCode = parsedBody.resultCode
+                        // url dẫn đến tranh toán của momo
+                        console.log('body',parsedBody)
+                        // res.json({ payUrl: url, rsCode: rsCode });
+                    });
+                    resMom.on("end",  async () => {
+                        if(rsCode === 0){
+                            const delivery = new Delivery({
+                                name: req.body.name,
+                                payment_method: "Momo",
+                                address: req.body.address,
+                                phone: req.body.phone,
+                                status: 5,
+                                _id: new mongoose.Types.ObjectId(req.body.product_id)
+                            })
+                            const newDlv = await delivery.save()
+                            delete newDlv._id
+                            const product = await Product.findOneAndUpdate(
+                                {
+                                    _id: new mongoose.Types.ObjectId(req.body.product_id),
+                                    winner_id: new mongoose.Types.ObjectId(userId)
+                                },
+                                {product_delivery: newDlv, status: 5, isDeliInfor:1},
+                                {new: true}
+                            )
 
-                    // res.json({ payUrl: url, rsCode: rsCode });
+                        }
+                        console.log(url)
+                        res.json({message: 'Thành công', payUrl: url});
+                    });
                 });
-                resMom.on("end",  async () => {
-                    if(rsCode === 0){
-                        const delivery = new Delivery({
-                            name: req.body.name,
-                            payment_method: "Momo",
-                            address: req.body.address,
-                            phone: req.body.phone,
-                            status: 5,
-                            _id: new mongoose.Types.ObjectId(req.body.product_id)
-                        })
-                        const newDlv = await delivery.save()
-                        delete newDlv._id
-                        const product = await Product.findOneAndUpdate(
-                            {
-                                _id: new mongoose.Types.ObjectId(req.body.product_id),
-                                winner_id: new mongoose.Types.ObjectId(userId)
-                            },
-                            {product_delivery: newDlv, status: 5, isDeliInfor:1},
-                            {new: true}
-                        )
 
-                    }
-                    res.json({message: 'Thành công', payUrl: url});
-                });
-            });
+                reqq.on("error", (e) => {
+                    return res.status(500).json({ error: 'Internal Server Error' });
+                })
 
-            reqq.on("error", (e) => {
-                return res.status(500).json({ error: 'Internal Server Error' });
-            })
-
-            reqq.write(requestBody);
-            reqq.end();
+                reqq.write(requestBody);
+                reqq.end();
             }
 
             else if(req.body?.payment_method === 2){
@@ -376,11 +382,11 @@ exports.checkoutProduct = async (req, res) => {
 
                 var returnUrl = ''
                 var returncode = 0
-                 await axios.post(config.endpoint, null, { params: order })
+                await axios.post(config.endpoint, null, { params: order })
                     .then(res => {
                         console.log(res.data);
                         returnUrl += res.data.orderurl
-                       returncode +=res.data.returncode
+                        returncode +=res.data.returncode
                     })
                     .catch(err => console.log(err));
 
