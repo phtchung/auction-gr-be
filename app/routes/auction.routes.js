@@ -13,7 +13,7 @@ module.exports = function (app) {
 
   app.get('/auction/bidCount/:productId', controller.getAuctionProductBidCount)
 
-  app.post('/auction/buy', [authJwt.verifyToken], controller.BuyProduct)
+  app.post('/auction/buy', [authJwt.verifyToken], controller.BuyProductController)
 
   app.get('/auction/seller/:seller', controller.getProductOfSeller)
 

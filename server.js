@@ -19,7 +19,6 @@ app.use((error, req, res, next) => {
   console.log('This is the rejected field ->', error.field)
 })
 
-// simple route
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to  application.' })
 })
@@ -34,10 +33,10 @@ require('./app/routes/delivery.routes')(app)
 require('./app/routes/auction.routes')(app)
 require('./app/routes/blog.routes')(app)
 require('./app/routes/review.routes')(app)
+require('./app/routes/sse.routes')(app)
 
 
-
-// app.use('/users', usersRouter);
+// app.use('/', sseRoute);
 
 startBiddingJob()
 startUpdateDeliveryJob()
@@ -45,7 +44,7 @@ cancelDeliveryJob()
 
 
 // set port, listen for requests
-const PORT = process.env.PORT || 8088
+const PORT = 8088
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`)
 })
