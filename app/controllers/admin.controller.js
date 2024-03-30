@@ -11,7 +11,7 @@ const Blog = require("../models/blog.model");
 const Categories = require("../models/category.model");
 const sse = require("../sse/index")
 const {createBlog} = require("../service/blog.service");
-const {adminApproveAuction} = require("../service/admin.service");
+const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct} = require("../service/admin.service");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -223,28 +223,18 @@ exports.adminApproveAuctionController = async (req, res) => {
     }
 }
 
-
-exports.adminRejectRequest = async (req, res) => {
-    try {
-        const request_id = req.body?.req_id
-        const request = await Request.findOneAndUpdate({
-                _id: request_id,
-                status: 1
-            },
-            {
-                $set: {
-                    status: 13,
-                    reason: req.body?.reason,
-                    reject_time: req.body?.reject_time,
-                }
-            })
-        if (!request) {
-            return res.status(500).json({message: 'Không tìm thấy yêu cầu đấu giá!'})
+exports.adminRejectRequestController = async (req, res) => {
+    const result = await adminRejectRequest(req);
+    res.status(result.statusCode).json({message : 'Từ chối yêu cầu thành công'});
+    if (!result.error) {
+        const data = {
+            title : 'Từ chối yêu cầu',
+            content : `Rất tiếc , yêu cầu đấu giá #${result.data._id.toString()} của bạn chưa được phê duyệt.Hãy thử lại sau!`,
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
         }
-
-        return res.status(200).json({message: 'Từ chối yêu cầu thành công'})
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `rejectProduct_${result.data.seller_id.toString()}`);
     }
 }
 
@@ -697,54 +687,49 @@ exports.adminGetProductReturnOfAdmin = async (req, res) => {
     }
 }
 
-exports.acceptReturnProduct = async (req, res) => {
-    try {
-
-        const productId = req.body?.product_id
-        const product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    status: 9
-                },
-                {
-                    $set: {
-                        status: 14,
-                        'product_delivery.status': 14,
-                        'product_delivery.approve_return_time': new Date()
-                    }
-                })
-
-        if (!product || product.status !== 9) {
-            return res.status(404).json({message: 'Product not found.'})
+exports.acceptReturnProductController = async (req, res) => {
+    const result = await acceptReturnProduct(req);
+    res.status(result.statusCode).json(result.message);
+    if (!result.error) {
+        const dataForWinner = {
+            title : 'Yêu cầu trả hàng',
+            content : `Yêu cầu trả hàng #${result.data._id.toString()} đã được phê duyệt bởi quản trị viên.Sản phẩm sẽ được trả lại cho người bán.`,
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-
-        return res.status(200).json({message: 'Update success'})
-    } catch (error) {
-        res.status(500).json({message: 'Internal server error' + error})
+        const dataForSeller = {
+            title : 'Yêu cầu trả hàng',
+            content : `Đơn hàng #${result.data._id.toString()} sẽ được trả lại trong vài ngày tới.`,
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
+        }
+        sse.send( dataForWinner, `acceptReturnWinner_${result.data.winner_id.toString()}`);
+        sse.send( dataForSeller, `acceptReturnSeller_${result.data.seller_id.toString()}`);
     }
 }
 
-exports.denyReturnProduct = async (req, res) => {
-    try {
-        const productId = req.body?.product_id
-        const product = await Product.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(productId),
-                status: 9
-            },
-            {
-                $set: {
-                    status: 15,
-                    'product_delivery.status': 15,
-                    'product_delivery.deny_return_time': new Date()
-                }
-            })
-
-        if (!product || product.status !== 9) {
-            return res.status(404).json({message: 'Product not found.'})
+exports.denyReturnProductController = async (req, res) => {
+    const result = await denyReturnProduct(req);
+    res.status(result.statusCode).json(result.message);
+    if (!result.error) {
+        const dataForWinner = {
+            title : 'Yêu cầu trả hàng',
+            content : `Rất tiếc, yêu cầu trả hàng #${result.data._id.toString()} đã bị từ chối.`,
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-
-        return res.status(200).json({message: 'Update success'})
-    } catch (error) {
-        res.status(500).json({message: 'Internal server error' + error})
+        const dataForSeller = {
+            title : 'Yêu cầu trả hàng',
+            content : `Quản trị viên từ chối trả lại sản phẩm của đơn hàng #${result.data._id.toString()}.`,
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
+        }
+        sse.send( dataForWinner, `denyReturnWinner_${result.data.winner_id.toString()}`);
+        sse.send( dataForSeller, `denyReturnSeller_${result.data.seller_id.toString()}`);
     }
 }
 

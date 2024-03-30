@@ -23,7 +23,7 @@ module.exports = function (app) {
   // tạo đấu giá từ rq người dùng
   app.post('/admin/approvedData', [authJwt.verifyToken], controller.adminApproveAuctionController)
 
-  app.post('/admin/rejectRequest', [authJwt.verifyToken], controller.adminRejectRequest)
+  app.post('/admin/rejectRequest', [authJwt.verifyToken], controller.adminRejectRequestController)
 
   //tạo rq từ qtv
   app.post('/admin/createProduct', [authJwt.verifyToken],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'files[]', maxCount: 16 }]), controller.adminCreateProductAution)
@@ -46,9 +46,9 @@ module.exports = function (app) {
 
   app.post('/admin/returnOfAdmin', [authJwt.verifyToken],authJwt.isAdmin, controller.adminGetProductReturnOfAdmin)
 
-  app.post('/admin/acceptReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.acceptReturnProduct)
+  app.post('/admin/acceptReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.acceptReturnProductController)
 
-  app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.denyReturnProduct)
+  app.post('/admin/denyReturn', [authJwt.verifyToken, authJwt.isAdmin], controller.denyReturnProductController)
 
   app.post('/admin/createBlog', [authJwt.verifyToken,authJwt.isAdmin],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'singlefile_sub[]', maxCount: 1 }]), controller.createBlogController)
 

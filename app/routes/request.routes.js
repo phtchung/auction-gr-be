@@ -15,6 +15,6 @@ module.exports = function (app) {
 
   app.get('/request/history/:requestId', [authJwt.verifyToken], controller.getRequestHistoryDetail)
 
-  app.post('/requests', [authJwt.verifyToken],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'files[]', maxCount: 16 }]), controller.createRequest)
+  app.post('/requests', [authJwt.verifyToken],upload.fields([{ name: 'singlefile[]', maxCount: 1 }, { name: 'files[]', maxCount: 16 }]), controller.createRequestController)
 
 }
