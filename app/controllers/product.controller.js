@@ -3,11 +3,14 @@ const mongoose = require('mongoose')
 const Request = require('../models/request.model')
 const  Categories= require('../models/category.model')
 const  User = require('../models/user.model')
-
-
-const {userRequestStatus, userWinOrderList} = require("../utils/constant");
+const {userRequestStatus, userWinOrderList, createTitleWinner, createContentWinner, createTitleSeller,
+    createContentSeller
+} = require("../utils/constant");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
+const sse = require("../sse");
+const {updateByWinner} = require("../service/product.service");
+const {da} = require("@faker-js/faker");
 
 
 exports.getAuctionHistory = async (req, res) => {
@@ -298,90 +301,30 @@ exports.getReqOrderDetail = async (req, res) => {
 }
 
 
-exports.updateByWinner = async (req, res) => {
-    try {
-        const userId = req.userId
-        const newStatus =parseInt( req.body.newState)
-        const productId = req.body?.product_id
-        const status = req.body?.state
-        var product
-        const now = new Date()
-        if(status === 7 && newStatus === 8 ){
-             product = await Product.findOneAndUpdate({
-                     _id: new mongoose.Types.ObjectId(productId),
-                     winner_id: new mongoose.Types.ObjectId(userId),
-                },
-                 [
-                     {
-                         $set: {
-                             status: newStatus,
-                             'product_delivery.status': newStatus,
-                             'product_delivery.completed_time': now,
-                             is_review : 0,
-                             review_before: { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] },
-                         }
-                     }
-                 ]
-                )
-             await User.findOneAndUpdate({
-                 _id: new mongoose.Types.ObjectId(userId),
-             },
-                 [
-                     {
-                         $set: {
-                             point: { $add: ["$point", 100] },
-                         }
-                     }
-                 ])
-        }else if(status === 7 && newStatus === 9){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    winner_id: new mongoose.Types.ObjectId(userId),
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.return_time': now
-                    }
-                })
+exports.updateByWinnerController = async (req, res) => {
+    const result = await updateByWinner(req);
+    res.status(result.statusCode).json({message:'Update success'});
+    if (!result.error) {
+        const dataForWinner = {
+            title : createTitleWinner(result.status),
+            content : createContentWinner(result.status ,result.data._id.toString()),
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-        else if(status === 5){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    seller_id: new mongoose.Types.ObjectId(userId),
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.confirm_time': now
-                    }
-                })
-        } else if(status === 6){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    seller_id: new mongoose.Types.ObjectId(userId),
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.delivery_start_time': now
-                    }
-                })
+        const dataForSeller = {
+            title : createTitleSeller(result.status),
+            content : createContentSeller(result.status ,result.data._id.toString()),
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
         }
-        if (!product || product.status !== status) {
-            return res.status(404).json({ message: 'Product not found.' })
+        sse.send( dataForWinner, `updateStatus_${result.data.winner_id.toString()}`);
+        if(result.status === 8){
+            sse.send( dataForSeller, `updateStatus_${result.data.seller_id.toString()}`);
         }
-
-        return res.status(200).json({message:'Update success'})
-    } catch (error) {
-        res.status(500).json({message: 'Internal server error' + error})
     }
 }
-
-
 
 exports.UserReturnProduct = async (req, res) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud

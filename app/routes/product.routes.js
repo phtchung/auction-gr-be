@@ -27,7 +27,7 @@ module.exports = function (app) {
 
     app.get('/product/req/:productId', [authJwt.verifyToken], controller.getReqOrderDetail)
 
-    app.post('/product/updateStatus', [authJwt.verifyToken], controller.updateByWinner)
+    app.post('/product/updateStatus', [authJwt.verifyToken], controller.updateByWinnerController)
 
     app.post('/user/returnProduct', [authJwt.verifyToken],upload.array('files[]',14), controller.UserReturnProduct)
 

@@ -86,3 +86,39 @@ module.exports.userWinOrderList = function(status) {
     return sorted;
 }
 
+module.exports.createTitleWinner = function(status ) {
+    if (
+        status === 6
+    ) {
+        return `Xác nhận đơn hàng`
+    }else if(status === 7) {
+        return `Đơn hàng đang giao`
+    }else if(status === 8) {
+        return `Đơn hàng giao thành công`
+    }else return ''
+};
+module.exports.createTitleSeller = function(status ) {
+    if (
+        status === 8
+    ) {
+        return `Hoàn thành đơn hàng`
+    }else return ''
+};
+module.exports.createContentWinner = function(status , productId ) {
+    if (
+        status === 6
+    ) {
+        return `Đơn hàng ${productId} của bạn đã được xác nhận bởi người bán`
+    }else if(status === 7) {
+        return `Đơn hàng ${productId} của bạn đang được giao`
+    }else if(status === 8) {
+        return `Đơn hàng ${productId} của bạn đã giao thành công`
+    }else return ''
+};
+module.exports.createContentSeller = function(status , productId ) {
+    if (
+        status === 8
+    ) {
+        return `Đơn hàng ${productId} của bạn đã hoàn thành`
+    }else return ''
+};
