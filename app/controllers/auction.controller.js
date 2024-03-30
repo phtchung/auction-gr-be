@@ -13,12 +13,11 @@ const moment = require('moment');
 const Blog = require("../models/blog.model");
 const {ne} = require("@faker-js/faker");
 const sse = require("../sse");
-const {BuyProduct} = require("../service/auction.service");
+const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
 
 exports.getBiddingList = async (req, res) => {
     try {
         const userId = req.userId
-
         const product_biddings = await Auction.aggregate([
             {
                 $match: {user: new mongoose.Types.ObjectId(userId)}
@@ -185,238 +184,248 @@ exports.getProductOfSeller = async (req, res) => {
     }
 }
 
-exports.finishAuctionProduct = async (req, res) => {
-    try {
-        const productId = req.body.productId
-
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(productId),
-            status: 3,
-            start_time: {$lt: new Date()},
-        })
-        if (product.winner_id && product.final_price && product.reserve_price < product.final_price) {
-            product.status = 4
-            product.victory_time = product.finish_time
-            product.isDeliInfor = 0
-            const temp = new Date(product.finish_time);
-            temp.setDate(temp.getDate() + 2);
-            temp.setHours(23, 59, 59, 999);
-            product.procedure_complete_time = temp
-            await product.save()
-        }else {
-            product.status = 10
-            await product.save()
+exports.finishAuctionProductController = async (req, res) => {
+    const result = await finishAuctionProduct(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Đấu giá thành công',
+            content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-        res.status(200).json({message: 'Cập nhật trạng thái thành công'})
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
     }
 }
 
-exports.checkoutProduct = async (req, res) => {
-    try {
-        const userId = req.userId
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(req.body.product_id)
-        })
-        if (product.status === 4) {
-            // = 0 tiền mặt , bằng 1 : momo , bằng 2 : vnpay
-            if(req.body?.payment_method === 0){
-                const delivery = new Delivery({
-                    name: req.body.name,
-                    payment_method: "Tiền mặt",
-                    address: req.body.address,
-                    phone: req.body.phone,
-                    status: 5,
-                    _id: new mongoose.Types.ObjectId(req.body.product_id)
-                })
-                const newDlv = await delivery.save()
-                delete newDlv._id
-                const product = await Product.findOneAndUpdate(
-                    {
-                        _id: new mongoose.Types.ObjectId(req.body.product_id),
-                        winner_id: new mongoose.Types.ObjectId(userId)
-                    },
-                    {product_delivery: newDlv, status: 5, isDeliInfor:1},
-                    {new: true}
-                )
-                return res.status(200).json({message: 'Thành công',payUrl :process.env.redirectUrl})
-            }else if(req.body?.payment_method === 1){
-            //     thanh toán momo
-                var partnerCode = process.env.partnerCode
-                var accessKey = process.env.accessKey;
-                var secretkey = process.env.SECRETKEY1
-                // chuỗi ngẫu nhiên để phân biệt cái request
-                var requestId = partnerCode + new Date().getTime() + "id";
-                // mã đặt đơn
-                var orderId = new Date().getTime() + ":0123456778";
-                //
-                var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
-                // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
-                var redirectUrl = process.env.redirectUrl;
-                // Trang thank you
-                var ipnUrl = process.env.ipnUrl
-                // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
-                var amount = product.final_price + product.shipping_fee
-                // var requestType = "payWithATM";
-                // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
-                var requestType = "captureWallet";
-                var extraData = "hello"; //pass empty value if your merchant does not have stores
-
-                var rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}` +
-                    `&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}` +
-                    `&requestId=${requestId}&requestType=${requestType}`;
-
-                var signature = crypto
-                    .createHmac('sha256',secretkey)
-                    .update(rawSignature)
-                    .digest("hex")
-
-            const requestBody = JSON.stringify({
-                partnerCode: partnerCode,
-                accessKey: accessKey,
-                requestId: requestId,
-                amount: amount,
-                orderId: orderId,
-                orderInfo: orderInfo,
-                redirectUrl: redirectUrl,
-                ipnUrl: ipnUrl,
-                extraData: extraData,
-                requestType: requestType,
-                signature: signature,
-                lang: "vi",
-            })
-
-            const https = require("https");
-            const options = {
-                hostname: "test-payment.momo.vn",
-                port: 443,
-                path: "/v2/gateway/api/create",
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(requestBody),
-                },
-            };
-            const reqq = https.request(options, (resMom) => {
-                var url =''
-                var rsCode
-                // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
-                resMom.setEncoding("utf8");
-                // trả về body là khi mình call momo
-                resMom.on("data", (body) => {
-                    let parsedBody = JSON.parse(body)
-                    url += parsedBody.payUrl
-                    rsCode = parsedBody.resultCode
-                    // resultCode = parsedBody.resultCode
-                    // url dẫn đến tranh toán của momo
-
-                    // res.json({ payUrl: url, rsCode: rsCode });
-                });
-                resMom.on("end",  async () => {
-                    if(rsCode === 0){
-                        const delivery = new Delivery({
-                            name: req.body.name,
-                            payment_method: "Momo",
-                            address: req.body.address,
-                            phone: req.body.phone,
-                            status: 5,
-                            _id: new mongoose.Types.ObjectId(req.body.product_id)
-                        })
-                        const newDlv = await delivery.save()
-                        delete newDlv._id
-                        const product = await Product.findOneAndUpdate(
-                            {
-                                _id: new mongoose.Types.ObjectId(req.body.product_id),
-                                winner_id: new mongoose.Types.ObjectId(userId)
-                            },
-                            {product_delivery: newDlv, status: 5, isDeliInfor:1},
-                            {new: true}
-                        )
-
-                    }
-                    res.json({message: 'Thành công', payUrl: url});
-                });
-            });
-
-            reqq.on("error", (e) => {
-                return res.status(500).json({ error: 'Internal Server Error' });
-            })
-
-            reqq.write(requestBody);
-            reqq.end();
-            }
-
-            else if(req.body?.payment_method === 2){
-                const config = {
-                    appid: process.env.appid,
-                    key1: process.env.key1,
-                    key2: process.env.key2,
-                    endpoint: process.env.endpoint,
-                };
-                const embeddata = {
-                    "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": process.env.redirectUrl
-                };
-
-                const order = {
-                    appid: config.appid,
-                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
-                    appuser: "demo",
-                    apptime: Date.now(), // miliseconds
-                    item: "[]",
-                    embeddata: JSON.stringify(embeddata),
-                    amount: product.final_price + product.shipping_fee,
-                    description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
-                    bankcode:"zalopayapp",
-                };
-
-                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
-                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
-
-                var returnUrl = ''
-                var returncode = 0
-                 await axios.post(config.endpoint, null, { params: order })
-                    .then(res => {
-                        console.log(res.data);
-                        returnUrl += res.data.orderurl
-                       returncode +=res.data.returncode
-                    })
-                    .catch(err => console.log(err));
-
-                if(returncode === 1){
-                    const delivery = new Delivery({
-                        name: req.body.name,
-                        payment_method: "Zalopay",
-                        address: req.body.address,
-                        phone: req.body.phone,
-                        status: 5,
-                        _id: new mongoose.Types.ObjectId(req.body.product_id)
-                    })
-
-                    const newDlv = await delivery.save()
-                    delete newDlv._id
-
-                    const product1 = await Product.findOneAndUpdate(
-                        {
-                            _id: new mongoose.Types.ObjectId(req.body.product_id),
-                            winner_id: new mongoose.Types.ObjectId(userId)
-                        },{
-                            $set: {
-                                product_delivery: newDlv,
-                                status: 5,
-                                isDeliInfor:1
-                            },
-                        },{new: true}
-                    )
-                }
-                res.status(200).json({message: 'Thành công', payUrl: returnUrl});
-            }
+exports.checkoutProductController = async (req, res) => {
+    const result = await checkoutProduct(req);
+    // const { error, message, statusCode, payUrl } = result;
+    // const newRs = { error, message, statusCode, payUrl };
+    console.log('rs',result);
+    res.status(result.statusCode).json(result);
+    if (!result.error) {
+        const data = {
+            title : 'Đấu giá thành công',
+            content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công.Mau xác nhận đơn hàng thôi!`,
+            url :'',
+            type : 1,
+            receiver : [result.data.seller_id],
         }
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        sse.send( data, `auctionSuccess_${result.data.seller_id.toString()}`);
     }
 }
+
+// exports.checkoutProduct = async (req, res) => {
+//     try {
+//         const userId = req.userId
+//         const product = await Product.findOne({
+//             _id: new mongoose.Types.ObjectId(req.body.product_id)
+//         })
+//         if (product.status === 4) {
+//             // = 0 tiền mặt , bằng 1 : momo , bằng 2 : vnpay
+//             if(req.body?.payment_method === 0){
+//                 const delivery = new Delivery({
+//                     name: req.body.name,
+//                     payment_method: "Tiền mặt",
+//                     address: req.body.address,
+//                     phone: req.body.phone,
+//                     status: 5,
+//                     _id: new mongoose.Types.ObjectId(req.body.product_id)
+//                 })
+//                 const newDlv = await delivery.save()
+//                 delete newDlv._id
+//                 const product = await Product.findOneAndUpdate(
+//                     {
+//                         _id: new mongoose.Types.ObjectId(req.body.product_id),
+//                         winner_id: new mongoose.Types.ObjectId(userId)
+//                     },
+//                     {product_delivery: newDlv, status: 5, isDeliInfor:1},
+//                     {new: true}
+//                 )
+//                 return res.status(200).json({message: 'Thành công',payUrl :process.env.redirectUrl})
+//             }else if(req.body?.payment_method === 1){
+//                 var partnerCode = "MOMO"
+//                 // var accessKey = process.env.accessKey;
+//                 // var secretkey = process.env.
+//                 var accessKey = 'F8BBA842ECF85';
+//                 var secretKey = 'K951B6PE1waDMi640xX08PD3vg6EkVlz';
+//                 // chuỗi ngẫu nhiên để phân biệt cái request
+//                 var requestId = partnerCode + new Date().getTime() + "id";
+//                 // mã đặt đơn
+//                 var orderId = new Date().getTime() + ":0123456778";
+//                 //
+//                 var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
+//                 // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
+//                 var redirectUrl = process.env.redirectUrl;
+//                 // Trang thank you
+//                 var ipnUrl = process.env.ipnUrl
+//                 // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
+//                 var amount =  product.final_price + product.shipping_fee
+//                 // var requestType = "payWithATM";
+//                 // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
+//                 var requestType = "captureWallet";
+//                 var extraData = "hello"; //pass empty value if your merchant does not have stores
+//
+//                 // var rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}` +
+//                 //     `&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}` +
+//                 //     `&requestId=${requestId}&requestType=${requestType}`;
+//                 var rawSignature = "accessKey="+accessKey+"&amount=" + amount+"&extraData=" + extraData+"&ipnUrl=" + ipnUrl+"&orderId=" + orderId+"&orderInfo=" + orderInfo+"&partnerCode=" + partnerCode +"&redirectUrl=" + redirectUrl+"&requestId=" + requestId+"&requestType=" + requestType
+//
+//                 var signature = crypto
+//                     .createHmac('sha256',secretKey)
+//                     .update(rawSignature)
+//                     .digest("hex")
+//
+//                 const requestBody = JSON.stringify({
+//                     partnerCode: partnerCode,
+//                     accessKey: accessKey,
+//                     requestId: requestId,
+//                     amount: amount,
+//                     orderId: orderId,
+//                     orderInfo: orderInfo,
+//                     redirectUrl: redirectUrl,
+//                     ipnUrl: ipnUrl,
+//                     extraData: extraData,
+//                     requestType: requestType,
+//                     signature: signature,
+//                     lang: "vi",
+//                 })
+//
+//                 const https = require("https");
+//                 const options = {
+//                     hostname: "test-payment.momo.vn",
+//                     port: 443,
+//                     path: "/v2/gateway/api/create",
+//                     method: "POST",
+//                     headers: {
+//                         "Content-Type": "application/json",
+//                         "Content-Length": Buffer.byteLength(requestBody),
+//                     },
+//                 };
+//                 const reqq = https.request(options, resMom => {
+//                     var url =''
+//                     var rsCode
+//                     console.log(`Status: ${resMom.statusCode}`);
+//                     // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
+//                     resMom.setEncoding("utf8");
+//                     // trả về body là khi mình call momo
+//                     resMom.on("data", (body) => {
+//                         let parsedBody = JSON.parse(body)
+//                         url += parsedBody.payUrl
+//                         rsCode = parsedBody.resultCode
+//                         // resultCode = parsedBody.resultCode
+//                         // url dẫn đến tranh toán của momo
+//                         console.log(parsedBody)
+//                         // res.json({ payUrl: url, rsCode: rsCode });
+//                     });
+//                     resMom.on("end",  async () => {
+//                         if(rsCode === 0){
+//                             const delivery = new Delivery({
+//                                 name: req.body.name,
+//                                 payment_method: "Momo",
+//                                 address: req.body.address,
+//                                 phone: req.body.phone,
+//                                 status: 5,
+//                                 _id: new mongoose.Types.ObjectId(req.body.product_id)
+//                             })
+//                             const newDlv = await delivery.save()
+//                             delete newDlv._id
+//                             const product = await Product.findOneAndUpdate(
+//                                 {
+//                                     _id: new mongoose.Types.ObjectId(req.body.product_id),
+//                                     winner_id: new mongoose.Types.ObjectId(userId)
+//                                 },
+//                                 {product_delivery: newDlv, status: 5, isDeliInfor:1},
+//                                 {new: true}
+//                             )
+//
+//                         }
+//                         res.json({message: 'Thành công', payUrl: url});
+//                         console.log("No more data in response.update xong");
+//                     });
+//                 });
+//
+//                 reqq.on("error", (e) => {
+//                     console.log(`problem with request: ${e.message}`);
+//                     return res.status(500).json({ error: 'Internal Server Error' });
+//                 })
+//                 console.log("Sending....");
+//                 reqq.write(requestBody);
+//                 reqq.end();
+//             }
+//
+//             else if(req.body?.payment_method === 2){
+//                 const config = {
+//                     appid: process.env.appid,
+//                     key1: process.env.key1,
+//                     key2: process.env.key2,
+//                     endpoint: process.env.endpoint,
+//                 };
+//                 const embeddata = {
+//                     "promotioninfo":"","merchantinfo":"embeddata123",
+//                     "redirecturl": process.env.redirectUrl
+//                 };
+//
+//                 const order = {
+//                     appid: config.appid,
+//                     apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
+//                     appuser: "demo",
+//                     apptime: Date.now(), // miliseconds
+//                     item: "[]",
+//                     embeddata: JSON.stringify(embeddata),
+//                     amount: product.final_price + product.shipping_fee,
+//                     description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
+//                     bankcode:"zalopayapp",
+//                 };
+//
+//                 const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
+//                 order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
+//
+//                 var returnUrl = ''
+//                 var returncode = 0
+//                  await axios.post(config.endpoint, null, { params: order })
+//                     .then(res => {
+//                         console.log(res.data);
+//                         returnUrl += res.data.orderurl
+//                        returncode +=res.data.returncode
+//                     })
+//                     .catch(err => console.log(err));
+//
+//                 if(returncode === 1){
+//                     const delivery = new Delivery({
+//                         name: req.body.name,
+//                         payment_method: "Zalopay",
+//                         address: req.body.address,
+//                         phone: req.body.phone,
+//                         status: 5,
+//                         _id: new mongoose.Types.ObjectId(req.body.product_id)
+//                     })
+//
+//                     const newDlv = await delivery.save()
+//                     delete newDlv._id
+//
+//                     const product1 = await Product.findOneAndUpdate(
+//                         {
+//                             _id: new mongoose.Types.ObjectId(req.body.product_id),
+//                             winner_id: new mongoose.Types.ObjectId(userId)
+//                         },{
+//                             $set: {
+//                                 product_delivery: newDlv,
+//                                 status: 5,
+//                                 isDeliInfor:1
+//                             },
+//                         },{new: true}
+//                     )
+//                 }
+//                 res.status(200).json({message: 'Thành công', payUrl: returnUrl});
+//             }
+//         }
+//     } catch (err) {
+//         return res.status(500).json({message: 'DATABASE_ERROR', err})
+//     }
+// }
 
 exports.getTopSeller = async (req, res) => {
     try {
