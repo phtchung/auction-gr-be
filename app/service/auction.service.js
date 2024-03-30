@@ -4,6 +4,7 @@ const Auction = require("../models/auction.model");
 const Delivery = require("../models/delivery.model");
 const crypto = require("crypto");
 const https = require("https");
+require('dotenv').config()
 const moment = require("moment/moment");
 const {v1: uuid} = require("uuid");
 const CryptoJS = require("crypto-js");
@@ -323,3 +324,6 @@ exports.checkoutProduct = async (req, res) => {
         };
     }
 }
+
+
+
