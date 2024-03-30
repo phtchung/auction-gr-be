@@ -29,7 +29,7 @@ module.exports = function (app) {
 
     app.post('/product/updateStatus', [authJwt.verifyToken], controller.updateByWinnerController)
 
-    app.post('/user/returnProduct', [authJwt.verifyToken],upload.array('files[]',14), controller.UserReturnProduct)
+    app.post('/user/returnProduct', [authJwt.verifyToken],upload.array('files[]',14), controller.UserReturnProductController)
 
     app.get('/auction/item/:productId', controller.getAuctionProductDetail)
 

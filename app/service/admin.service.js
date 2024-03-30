@@ -59,3 +59,105 @@ exports.adminApproveAuction = async (req, res) => {
         };
     }
 }
+
+exports.adminRejectRequest = async (req) => {
+    try {
+        const request_id = req.body?.req_id
+        const request = await Request.findOneAndUpdate({
+                _id: request_id,
+                status: 1
+            },
+            {
+                $set: {
+                    status: 13,
+                    reason: req.body?.reason,
+                    reject_time: req.body?.reject_time,
+                }
+            })
+        if (!request) {
+            return {
+                data: [],
+                error: true,
+                message: "Không tìm thấy yêu cầu đấu giá",
+                statusCode: 500,
+            };
+        }
+        return { data: request, error: false, message: "Từ chối yêu cầu thành công", statusCode: 200 };
+    } catch (err) {
+        return {
+            data: [],
+            error: true,
+            message: "DATABASE_ERROR",
+            statusCode: 500,
+        };
+    }
+}
+
+exports.acceptReturnProduct = async (req) => {
+    try {
+        const productId = req.body?.product_id
+        const product = await Product.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(productId),
+                status: 9
+            },
+            {
+                $set: {
+                    status: 14,
+                    'product_delivery.status': 14,
+                    'product_delivery.approve_return_time': new Date()
+                }
+            })
+
+        if (!product || product.status !== 9) {
+            return {
+                data: [],
+                error: true,
+                message: "Không tìm thấy sản phẩm",
+                statusCode: 404,
+            };
+        }
+        return { data: product, error: false, message: "Phê duyệt yêu cầu trả hàng thành công", statusCode: 200 };
+    } catch (error) {
+        return {
+            data: [],
+            error: true,
+            message: "DATABASE_ERROR",
+            statusCode: 500,
+        };
+    }
+}
+
+exports.denyReturnProduct = async (req) => {
+    try {
+        const productId = req.body?.product_id
+        const product = await Product.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(productId),
+                status: 9
+            },
+            {
+                $set: {
+                    status: 15,
+                    'product_delivery.status': 15,
+                    'product_delivery.deny_return_time': new Date()
+                }
+            })
+
+        if (!product || product.status !== 9) {
+            return {
+                data: [],
+                error: true,
+                message: "Không tìm thấy sản phẩm",
+                statusCode: 404,
+            };
+        }
+        return { data: product, error: false, message: "Từ chối yêu cầu trả hàng thành công", statusCode: 200 };
+
+    } catch (error) {
+        return {
+            data: [],
+            error: true,
+            message: "DATABASE_ERROR",
+            statusCode: 500,
+        };
+    }
+}
