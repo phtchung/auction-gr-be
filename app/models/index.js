@@ -14,6 +14,8 @@ db.category = require('./category.model')
 db.request = require('./request.model')
 db.auction = require('./auction.model')
 db.blog = require('./blog.model')
+db.notification = require('./notification.model')
+
 
 db.ROLES = ['user', 'admin']
 
