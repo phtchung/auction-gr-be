@@ -161,3 +161,60 @@ exports.denyReturnProduct = async (req) => {
         };
     }
 }
+
+exports.updateStatusByAdmin = async (req) => {
+    try {
+        const newStatus = parseInt(req.body.newState)
+        const productId = req.body?.product_id
+        const status = req.body?.state
+        const now = new Date()
+        var product
+        const check = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+        })
+        if (!check || check.status !== status) {
+            return {
+                data: [],
+                error: true,
+                message: "Product not found.",
+                statusCode: 404,
+            };
+        }
+
+        if (status === 5) {
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    admin_belong: 1
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.confirm_time': now
+                    }
+                })
+            return { data: product, error: false, message: "success", statusCode: 200, status : 6 };
+
+        } else if (status === 6) {
+            product = await Product.findOneAndUpdate({
+                    _id: new mongoose.Types.ObjectId(productId),
+                    admin_belong: 1
+                },
+                {
+                    $set: {
+                        status: newStatus,
+                        'product_delivery.status': newStatus,
+                        'product_delivery.delivery_start_time': now
+                    }
+                })
+            return { data: product, error: false, message: "success", statusCode: 200, status : 7 };
+        }
+    } catch (error) {
+        return {
+            data: [],
+            error: true,
+            message: "Internal server error.",
+            statusCode: 500,
+        };
+    }
+}

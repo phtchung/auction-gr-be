@@ -4,14 +4,19 @@ const Request = require("../models/request.model");
 const Delivery = require("../models/delivery.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
-const {adminProductStatus, adminRequestStatus} = require("../utils/constant");
+const {adminProductStatus, adminRequestStatus,
+    createTitleWinner,
+    createContentWinner,
+    createTitleSeller,
+    createContentSeller
+} = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
 const Blog = require("../models/blog.model");
 const Categories = require("../models/category.model");
 const sse = require("../sse/index")
 const {createBlog} = require("../service/blog.service");
-const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct} = require("../service/admin.service");
+const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin} = require("../service/admin.service");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -352,46 +357,18 @@ exports.adminCancelProduct = async (req, res) => {
     }
 }
 
-exports.updateStatusByAdmin = async (req, res) => {
-    try {
-        const newStatus = parseInt(req.body.newState)
-        const productId = req.body?.product_id
-        const status = req.body?.state
-        const now = new Date()
-        var product
-
-        if (status === 5) {
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    admin_belong: 1
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.confirm_time': now
-                    }
-                })
-        } else if (status === 6) {
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    admin_belong: 1
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.delivery_start_time': now
-                    }
-                })
+exports.updateStatusByAdminController = async (req, res) => {
+    const result = await updateStatusByAdmin(req);
+    res.status(result.statusCode).json({message:'Update success'});
+    if (!result.error) {
+        const dataForWinner = {
+            title : createTitleWinner(result.status),
+            content : createContentWinner(result.status ,result.data._id.toString()),
+            url :'',
+            type : 1,
+            receiver : [result.data.winner_id],
         }
-        if (!product || product.status !== status) {
-            return res.status(404).json({message: 'Product not found.'})
-        }
-
-        return res.status(200).json({message: 'Update success'})
-    } catch (error) {
-        res.status(500).json({message: 'Internal server error' + error})
+        sse.send( dataForWinner, `updateStatus_${result.data.winner_id.toString()}`);
     }
 }
 
