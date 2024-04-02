@@ -8,7 +8,7 @@ const {adminProductStatus, adminRequestStatus,
     createTitleWinner,
     createContentWinner,
     createTitleSeller,
-    createContentSeller
+    createContentSeller, formatDateTime
 } = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
@@ -17,6 +17,8 @@ const Categories = require("../models/category.model");
 const sse = require("../sse/index")
 const {createBlog} = require("../service/blog.service");
 const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin} = require("../service/admin.service");
+const Notification = require("../models/notification.model");
+const {da} = require("@faker-js/faker");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -217,13 +219,14 @@ exports.adminApproveAuctionController = async (req, res) => {
     const result = await adminApproveAuction(req);
     res.status(result.statusCode).json(result);
     if (!result.error) {
-        const data = {
+        const data = new Notification ({
             title : 'Yêu cầu được duyệt',
-            content : `Yêu cầu ${result.data.request_id.toString()} vừa được quản trị viên phê duyệt .Sản phẩm sẽ được đấu giá vào lúc ...`,
-            url :'',
+            content : `Yêu cầu #${result.data.request_id.toString()} vừa được quản trị viên phê duyệt .Sản phẩm sẽ được đấu giá vào lúc ${formatDateTime(result.data.start_time)}`,
+            url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=2`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await data.save()
         sse.send( data, `approveProduct_${result.data.seller_id.toString()}`);
     }
 }
@@ -232,13 +235,14 @@ exports.adminRejectRequestController = async (req, res) => {
     const result = await adminRejectRequest(req);
     res.status(result.statusCode).json({message : 'Từ chối yêu cầu thành công'});
     if (!result.error) {
-        const data = {
+        const data = new Notification ({
             title : 'Từ chối yêu cầu',
-            content : `Rất tiếc , yêu cầu đấu giá #${result.data._id.toString()} của bạn chưa được phê duyệt.Hãy thử lại sau!`,
-            url :'',
+            content : `Yêu cầu đấu giá #${result.data._id.toString()} của bạn chưa được phê duyệt!`,
+            url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=13`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await data.save()
         sse.send( data, `rejectProduct_${result.data.seller_id.toString()}`);
     }
 }

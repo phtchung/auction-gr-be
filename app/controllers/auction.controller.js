@@ -2,7 +2,6 @@ const mongoose = require('mongoose')
 const Product = require('../models/product.model')
 const Auction = require('../models/auction.model')
 const User = require("../models/user.model");
-const Delivery = require("../models/delivery.model");
 const Categories = require("../models/category.model");
 const crypto = require("crypto");
 require('dotenv').config()
@@ -10,10 +9,10 @@ const axios = require('axios')
 const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
-const Blog = require("../models/blog.model");
-const {ne} = require("@faker-js/faker");
 const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
+const Notification = require('../models/notification.model')
+
 
 exports.getBiddingList = async (req, res) => {
     try {
@@ -138,13 +137,14 @@ exports.BuyProductController = async (req, res) => {
     const result = await BuyProduct(req);
     res.status(result.statusCode).json(result);
     if (!result.error) {
-        const data = {
+        const data = new Notification ( {
             title : 'Đấu giá thành công',
             content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
-            url :'',
+            url :`winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
+        })
+        await data.save()
         sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
     }
 }

@@ -122,3 +122,22 @@ module.exports.createContentSeller = function(status , productId ) {
         return `Đơn hàng ${productId} của bạn đã hoàn thành`
     }else return ''
 };
+
+module.exports.getNotifyStatus = function(status) {
+    if (status === 1) {
+        return 1
+    }else return 0
+};
+
+module.exports.formatDateTime = (inputDateString) => {
+    const inputDate = new Date(inputDateString);
+    const formatDateComponent = (component) => String(component).padStart(2, "0");
+    const year = formatDateComponent(inputDate.getFullYear());
+    const month = formatDateComponent(inputDate.getMonth() + 1);
+    const day = formatDateComponent(inputDate.getDate());
+    const hours = formatDateComponent(inputDate.getHours());
+    const minutes = formatDateComponent(inputDate.getMinutes());
+    const seconds = formatDateComponent(inputDate.getSeconds());
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
