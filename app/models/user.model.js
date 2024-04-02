@@ -20,6 +20,7 @@ const User = mongoose.model(
             // số lượng người đánh giá
             rate_count:Number,
             activity_intensity: Number,
+            last_seen: Date,
             roles: [
                 {
                     type: mongoose.Schema.Types.ObjectId,

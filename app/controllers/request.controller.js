@@ -1,6 +1,7 @@
 const Request = require('../models/request.model')
 const Product = require('../models/product.model')
 const Delivery = require('../models/delivery.model')
+const Notification = require('../models/notification.model')
 const {Storage} = require('@google-cloud/storage')
 const mongoose = require('mongoose')
 const {format} = require("util");
@@ -36,15 +37,16 @@ exports.getRequest = async (req, res) => {
 
 exports.createRequestController = async (req, res) => {
     const result = await createRequest(req);
-    res.status(result.statusCode).json({message:'Send request success'});
+    res.status(result.statusCode).json(result);
     if (!result.error) {
-        const data = {
+        const data = new Notification ({
             title : 'Yêu cầu đấu giá',
             content :`Yêu cầu đấu giá #${result.data._id.toString()} đã được gửi cho quản trị viên.`,
-            url :'',
+            url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=1`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await data.save()
         sse.send( data, `sendRequest_${result.data.seller_id.toString()}`);
     }
 }
