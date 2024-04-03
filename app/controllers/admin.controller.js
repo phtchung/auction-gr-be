@@ -365,13 +365,14 @@ exports.updateStatusByAdminController = async (req, res) => {
     const result = await updateStatusByAdmin(req);
     res.status(result.statusCode).json({message:'Update success'});
     if (!result.error) {
-        const dataForWinner = {
+        const dataForWinner = new Notification({
             title : createTitleWinner(result.status),
             content : createContentWinner(result.status ,result.data._id.toString()),
-            url :'',
+            url :`/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=${result.status}`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
+        })
+        await dataForWinner.save()
         sse.send( dataForWinner, `updateStatus_${result.data.winner_id.toString()}`);
     }
 }
@@ -672,20 +673,22 @@ exports.acceptReturnProductController = async (req, res) => {
     const result = await acceptReturnProduct(req);
     res.status(result.statusCode).json(result.message);
     if (!result.error) {
-        const dataForWinner = {
-            title : 'Yêu cầu trả hàng',
-            content : `Yêu cầu trả hàng #${result.data._id.toString()} đã được phê duyệt bởi quản trị viên.Sản phẩm sẽ được trả lại cho người bán.`,
-            url :'',
+        const dataForWinner = new Notification({
+            title : 'Trả hàng thành công',
+            content : `Yêu cầu trả hàng #${result.data._id.toString()} đã được phê duyệt bởi quản trị viên. Sản phẩm sẽ được trả lại cho người bán.`,
+            url :`/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=14`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
-        const dataForSeller = {
+        })
+        await dataForWinner.save()
+        const dataForSeller = new Notification({
             title : 'Yêu cầu trả hàng',
             content : `Đơn hàng #${result.data._id.toString()} sẽ được trả lại trong vài ngày tới.`,
-            url :'',
+            url :`reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=14`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await dataForSeller.save()
         sse.send( dataForWinner, `acceptReturnWinner_${result.data.winner_id.toString()}`);
         sse.send( dataForSeller, `acceptReturnSeller_${result.data.seller_id.toString()}`);
     }
@@ -695,20 +698,22 @@ exports.denyReturnProductController = async (req, res) => {
     const result = await denyReturnProduct(req);
     res.status(result.statusCode).json(result.message);
     if (!result.error) {
-        const dataForWinner = {
+        const dataForWinner = new Notification ({
             title : 'Yêu cầu trả hàng',
             content : `Rất tiếc, yêu cầu trả hàng #${result.data._id.toString()} đã bị từ chối.`,
-            url :'',
+            url :`/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=15`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
-        const dataForSeller = {
+        })
+        await dataForWinner.save()
+        const dataForSeller = new Notification({
             title : 'Yêu cầu trả hàng',
             content : `Quản trị viên từ chối trả lại sản phẩm của đơn hàng #${result.data._id.toString()}.`,
-            url :'',
+            url :`reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=15`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await dataForSeller.save()
         sse.send( dataForWinner, `denyReturnWinner_${result.data.winner_id.toString()}`);
         sse.send( dataForSeller, `denyReturnSeller_${result.data.seller_id.toString()}`);
     }
@@ -718,17 +723,17 @@ exports.createBlogController = async (req, res) => {
     const result = await createBlog(req);
     res.status(result.statusCode).json(result);
     if (!result.error) {
-        const data = {
+        const data = new Notification({
             title : 'Bài viết mới',
             content : `Bài đăng ${result.data[0].title} vừa được ra mắt`,
-            url :'',
+            url :`/articles/news/${result.data[0]._id}`,
             type : 0,
             receiver : [],
-        }
+        })
+        await data.save()
         sse.send( data, "newBlog");
     }
 };
-
 
 exports.createCategory = async (req, res) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
