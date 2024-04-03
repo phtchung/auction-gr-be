@@ -2,16 +2,14 @@ const Product = require('../models/product.model')
 const mongoose = require('mongoose')
 const Request = require('../models/request.model')
 const  Categories= require('../models/category.model')
-const  User = require('../models/user.model')
-const {userRequestStatus, userWinOrderList, createTitleWinner, createContentWinner, createTitleSeller,
-    createContentSeller
+const {userRequestStatus, userWinOrderList, createTitleWinner, createContentWinner, createTitleSeller, createContentSeller
 } = require("../utils/constant");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
 const sse = require("../sse");
 const {updateByWinner, UserReturnProduct} = require("../service/product.service");
 const {da} = require("@faker-js/faker");
-
+const Notification = require('../models/notification.model')
 
 
 exports.getAuctionHistory = async (req, res) => {
@@ -301,27 +299,28 @@ exports.getReqOrderDetail = async (req, res) => {
     }
 }
 
-
 exports.updateByWinnerController = async (req, res) => {
     const result = await updateByWinner(req);
     res.status(result.statusCode).json({message:'Update success'});
     if (!result.error) {
-        const dataForWinner = {
+        const dataForWinner = new Notification({
             title : createTitleWinner(result.status),
             content : createContentWinner(result.status ,result.data._id.toString()),
-            url :'',
+            url :`/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=${result.status}`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
-        const dataForSeller = {
-            title : createTitleSeller(result.status),
-            content : createContentSeller(result.status ,result.data._id.toString()),
-            url :'',
-            type : 1,
-            receiver : [result.data.seller_id],
-        }
+        })
+        await dataForWinner.save()
         sse.send( dataForWinner, `updateStatus_${result.data.winner_id.toString()}`);
         if(result.status === 8){
+            const dataForSeller = new Notification ({
+                title : createTitleSeller(result.status),
+                content : createContentSeller(result.status ,result.data._id.toString()),
+                url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=${result.status}`,
+                type : 1,
+                receiver : [result.data.seller_id],
+            })
+            await dataForSeller.save()
             sse.send( dataForSeller, `updateStatus_${result.data.seller_id.toString()}`);
         }
     }
@@ -331,25 +330,26 @@ exports.UserReturnProductController = async (req, res) => {
     const result = await UserReturnProduct(req);
     res.status(result.statusCode).json(result.message);
     if (!result.error) {
-        const dataForWinner = {
+        const dataForWinner = new Notification({
             title : 'Yêu cầu trả hàng',
             content : `Yêu cầu trả hàng #${result.data._id.toString()} đã được gửi đến quản trị viên`,
-            url :'',
+            url :`/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=9`,
             type : 1,
             receiver : [result.data.winner_id],
-        }
-        const dataForSeller = {
+        })
+        await dataForWinner.save()
+        const dataForSeller = new Notification({
             title : 'Yêu cầu trả hàng',
             content : `Đơn hàng #${result.data._id.toString()} đang được yêu cầu trả lại.`,
-            url :'',
+            url :`reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=9`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await dataForSeller.save()
         sse.send( dataForWinner, `returnProductWinner_${result.data.winner_id.toString()}`);
         sse.send( dataForSeller, `returnProductSeller_${result.data.seller_id.toString()}`);
     }
 }
-
 
 exports.getAuctionProductDetail = async (req, res) => {
     try {

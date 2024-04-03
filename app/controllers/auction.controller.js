@@ -12,6 +12,7 @@ const moment = require('moment');
 const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
+const {da} = require("@faker-js/faker");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -206,13 +207,14 @@ exports.checkoutProductController = async (req, res) => {
     console.log('rs',result);
     res.status(result.statusCode).json(result);
     if (!result.error) {
-        const data = {
+        const data = new Notification ({
             title : 'Đấu giá thành công',
-            content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công.Mau xác nhận đơn hàng thôi!`,
-            url :'',
+            content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công. Mau xác nhận đơn hàng!`,
+            url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=5`,
             type : 1,
             receiver : [result.data.seller_id],
-        }
+        })
+        await data.save()
         sse.send( data, `auctionSuccess_${result.data.seller_id.toString()}`);
     }
 }
