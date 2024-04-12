@@ -70,6 +70,10 @@ const Product = mongoose.model(
             cancel_time:Date,
             // approved_at chính là created at của product trong bảng product
             image_list: [String],
+            view:{
+                type:Number,
+                default: 0
+            },
             is_review : Number,
             review_before:Date,
             get_point :{

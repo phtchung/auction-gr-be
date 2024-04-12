@@ -9,6 +9,10 @@ module.exports = function (app) {
 
   app.get('/bidding', [authJwt.verifyToken], controller.getBiddingList)
 
+  app.get('/auction/topBidList/:product_id', [authJwt.verifyToken], controller.getTopBidOfProduct)
+
+  app.get('/auction/fullBidList/:product_id', [authJwt.verifyToken], controller.getFullBidOfProduct)
+
   app.post('/auction/bid', [authJwt.verifyToken], controller.createProductBid)
 
   app.get('/auction/bidCount/:productId', controller.getAuctionProductBidCount)
@@ -26,6 +30,8 @@ module.exports = function (app) {
   app.get('/auction/product1k', controller.getProduct1k)
 
   app.get('/auction/productRare', controller.getRareProduct)
+
+  app.get('/auction/standOut', controller.getStandoutProduct)
 
   app.get('/auction/prepareToEnd', controller.getProductPrepareEnd)
 
