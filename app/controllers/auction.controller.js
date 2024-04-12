@@ -73,6 +73,53 @@ exports.getBiddingList = async (req, res) => {
     }
 }
 
+exports.getTopBidOfProduct = async (req, res) => {
+    try {
+        const userId = req.userId
+        const productId = req.params.product_id
+        const topBidList = await Auction.aggregate([
+            {
+                $match: {product_id: new mongoose.Types.ObjectId(productId)}
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $limit: 3
+            }
+        ])
+        const product = await Product.findById(
+            productId
+        ).select('step_price main_image reserve_price')
+            .lean()
+
+        const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+        return res.status(200).json({list : topBidList, product , highest_price })
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR 1', err})
+    }
+}
+
+exports.getFullBidOfProduct = async (req, res) => {
+    try {
+        const userId = req.userId
+        const productId = req.params.product_id
+        const fullBidList = await Auction.aggregate([
+            {
+                $match: {product_id: new mongoose.Types.ObjectId(productId)}
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+        ])
+
+        return res.status(200).json({list : fullBidList})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR 1', err})
+    }
+}
+
+
 exports.createProductBid = async (req, res) => {
 
     try {
@@ -477,6 +524,26 @@ exports.getRareProduct = async (req, res) => {
                     }
             },
             { $sort: { 'reserve_price': -1 }},
+            { $limit: 10 },
+            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1 }}
+        ])
+
+        res.status(200).json(products)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getStandoutProduct = async (req, res) => {
+    try {
+        const products = await Product.aggregate([
+            { $match:
+                    {
+                        status : 3,
+                        finish_time: {$gt: new Date(), $exists: true},
+                    }
+            },
+            { $sort: { 'view': -1 }},
             { $limit: 10 },
             { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1 }}
         ])

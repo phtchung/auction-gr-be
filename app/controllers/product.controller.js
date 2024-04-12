@@ -360,11 +360,17 @@ exports.getAuctionProductDetail = async (req, res) => {
             status: 3,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date(), $exists: true},
-        }).populate('seller_id category_id request_id', 'name average_rating parent  username product_done_count rate_count point phone createdAt')
+        }).populate('seller_id category_id request_id', 'name average_rating parent username product_done_count rate_count point createdAt')
 
         if (!auctionProduct) {
             return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
         }
+        if(!auctionProduct.view){
+            auctionProduct.view = 1
+        }else {
+            auctionProduct.view += 1
+        }
+        await auctionProduct.save()
         const parent = await Categories.findOne({
             _id : auctionProduct.category_id.parent
         }).select('_id name')
