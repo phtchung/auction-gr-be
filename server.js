@@ -7,6 +7,18 @@ require('dotenv').config()
 // var usersRouter = require('./app/routes/user.routes');
 
 const app = express()
+const { createServer } = require('node:http');
+const { Server } = require('socket.io');
+const server = createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173",
+    allowedHeaders: ["my-custom-header"],
+    credentials: true
+  }
+});
+
+
 app.use(cors())
 
 // parse requests of content-type - application/json
@@ -45,9 +57,15 @@ startBiddingJob()
 startUpdateDeliveryJob()
 cancelDeliveryJob()
 
+io.on('connection', (socket) => {
 
+});
+
+exports.io = io
 // set port, listen for requests
 const PORT = 8088
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}.`)
 })
+
+
