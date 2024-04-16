@@ -43,4 +43,6 @@ module.exports = function (app) {
 
   app.get('/auction/relatedItem/:id', controller.getRalatedProduct)
 
+  app.post('/auction/online/bid', [authJwt.verifyToken], controller. createOnlineAuction)
+
 }

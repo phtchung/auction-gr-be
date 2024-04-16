@@ -13,6 +13,7 @@ const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const {da} = require("@faker-js/faker");
+const main = require('../../server')
 
 
 exports.getBiddingList = async (req, res) => {
@@ -679,5 +680,55 @@ exports.getRalatedProduct = async (req, res) => {
         res.status(200).json(relatedProducts)
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+exports.createOnlineAuction = async (req, res) => {
+
+    try {
+        const userId = req.userId
+        const username = req.username
+        const productId = req.body.productId
+        const winner_id = new mongoose.Types.ObjectId(userId)
+
+        const product = await Product.findOne({
+                _id: new mongoose.Types.ObjectId(productId),
+                status: 3,
+                seller_id: {$ne : winner_id},
+                start_time: {$lt: new Date()},
+                finish_time: {$gt: new Date()},
+            })
+
+        if (!product) {
+            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá 1'})
+        }else
+        {
+            const bid = new Auction({
+                product_id: new mongoose.Types.ObjectId(productId),
+                user: new mongoose.Types.ObjectId(userId),
+                username: username,
+                bid_price: parseInt(req.body?.final_price),
+                bid_time: new Date(),
+            })
+            await bid.save();
+            const topBidList = await Auction.aggregate([
+                {
+                    $match: {product_id: new mongoose.Types.ObjectId(productId)}
+                },
+                {
+                    $sort: {createdAt: -1}
+                },
+                {
+                    $limit: 3
+                }
+            ])
+            const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+
+            main.io.emit(`auction-${productId}`, {topBidList,highest_price } );
+        }
+
+        res.status(200).json({message: 'Thực hiện trả giá thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
     }
 }
