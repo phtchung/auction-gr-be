@@ -21,6 +21,8 @@ module.exports = function (app) {
 
   app.get('/auction/seller/:seller', controller.getProductOfSeller)
 
+  app.get('/home/seller/:id', controller.getProductsByFilterSellerHome)
+
   app.post('/auction/finish', controller.finishAuctionProductController)
 
   app.post('/auction/checkout', [authJwt.verifyToken], controller.checkoutProductController)
@@ -39,7 +41,7 @@ module.exports = function (app) {
 
   app.get('/category/:id', controller.getCategoryDetail)
 
-  app.post('/home/category/:id', controller.getProductsByFilter)
+  app.get('/home/category/:id', controller.getProductsByFilter)
 
   app.get('/auction/relatedItem/:id', controller.getRalatedProduct)
 

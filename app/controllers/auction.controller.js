@@ -12,8 +12,8 @@ const moment = require('moment');
 const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
-const {da} = require("@faker-js/faker");
 const main = require('../../server')
+const {splitString, parseAdvance} = require("../utils/constant");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -207,12 +207,100 @@ exports.getProductOfSeller = async (req, res) => {
         if (!user) {
             return res.status(404).json({message: 'Không tìm thấy người bán nào'})
         }
-        var products = await Product.find({
+        var total_product = await Product.countDocuments({
             seller_id: new mongoose.Types.ObjectId(user._id),
             status: 3,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
         })
+
+        res.status(200).json({user: user, total_product: total_product})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getProductsByFilterSellerHome = async (req, res) => {
+    try {
+        const seller = req.params.id
+        const user = await User.findOne({
+            username: seller
+        }).select('average_rating name username point product_done_count rate_count')
+        if (!user) {
+            return res.status(404).json({message: 'Không tìm thấy người bán nào'})
+        }
+
+        let query = {};
+        let sort = {}
+        //cate con
+        // if (req.query.subcate) {
+        //     query.category_id = new mongoose.Types.ObjectId(req.query.subcate)
+        // }else {
+        //     const childs = await Categories.find({
+        //         parent : new mongoose.Types.ObjectId(category._id)
+        //     })
+        //     query.category_id = { $in: childs.map(child => child._id)}
+        // }
+
+        // lọc nâng cao
+        if (req.query.advance) {
+            if (Array.isArray(req.query.advance)) {
+                req.query.advance.map((item) => {
+                    parseAdvance(item,query)
+                });
+            } else {
+                parseAdvance(req.query.advance,query)
+            }
+        }
+
+        // trạng thái đã sd hay chưa
+        if (req.query.state) {
+            if (Array.isArray(req.query.state)) {
+                query.is_used = {$in : req.query.state.map((item) => parseInt(item, 10))}  ;
+            } else {
+                query.is_used = parseInt(req.query.state);
+            }
+        }
+
+        if (req.query.sortBy) {
+            const parts = splitString(req.query.sortBy)
+            if(parts[0] !== 'bid_count'){
+                sort[parts[0]] = parts[1]
+            }
+        }
+        console.log(sort)
+
+        const page = parseInt(req.query.page) - 1 || 0
+        const limit = 3
+
+
+        query.status = 3
+        query.seller_id = new mongoose.Types.ObjectId(user._id)
+
+        if(query.start_time){
+            query.start_time.$lt = new Date(Date.now());
+        }else {
+            query.start_time = {
+                $lt: new Date(Date.now())
+            };
+        }
+        if(query.finish_time){
+            query.finish_time.$gt = new Date(Date.now());
+        }else {
+            query.finish_time = {
+                $gt: new Date(Date.now())
+            };
+        }
+
+        const products = await Product.find(query)
+            .sort(sort)
+            .skip(page*limit)
+            .limit(limit)
+
+        const total = await Product.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
+
         if (products.length !== 0) {
             for (let i = 0; i < products.length; i++) {
                 const count = await Auction.aggregate([
@@ -227,9 +315,22 @@ exports.getProductOfSeller = async (req, res) => {
             }
         }
 
-        res.status(200).json({user: user, products: products})
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR', err})
+        if(req.query.sortBy){
+            if(req.query.sortBy ===  'bid_count-asc'){
+                products.sort((a, b) => a.count - b.count);
+            }else
+                products.sort((a, b) => b.count - a.count);
+        }
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products
+        }
+        res.status(200).json(response)
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
     }
 }
 
@@ -620,9 +721,11 @@ exports.getCategoryDetail = async (req, res) => {
         res.status(500).json({ message: 'Internal server error' })
     }
 }
+
 exports.getProductsByFilter = async (req, res) => {
     try {
         const id = req.params.id
+
         const category = await Categories.findById(id).select('_id  name')
 
         if (!category) {
@@ -633,12 +736,87 @@ exports.getProductsByFilter = async (req, res) => {
             parent : new mongoose.Types.ObjectId(category._id)
         })
 
-        const products = await Product.find({
-            status: 3,
-            start_time: {$lt: new Date()},
-            finish_time: {$gt: new Date()},
-            category_id: { $in: childs.map(child => child._id) }
-        })
+        let query = {};
+        let sort = {}
+        //cate con
+        if (req.query.subcate) {
+            query.category_id = new mongoose.Types.ObjectId(req.query.subcate)
+        }else {
+            const childs = await Categories.find({
+                parent : new mongoose.Types.ObjectId(category._id)
+            })
+            query.category_id = { $in: childs.map(child => child._id)}
+        }
+
+        // lọc nâng cao
+        if (req.query.advance) {
+            if (Array.isArray(req.query.advance)) {
+                req.query.advance.map((item) => {
+                    parseAdvance(item,query)
+                });
+            } else {
+                parseAdvance(req.query.advance,query)
+            }
+        }
+        // lọc sao user
+        if (req.query.rate) {
+            let users
+            if(parseInt(req.query.rate) === -1){
+                users = await User.find({
+                    average_rating :  {$lt : 1}
+                }).select('_id')
+            }else {
+                users = await User.find({
+                    average_rating : {$gt : parseInt(req.query.rate)}
+                }).select('_id')
+            }
+            if(users){
+                query.seller_id = { $in: users.map(user => user._id)}
+            }
+        }
+
+        // trạng thái đã sd hay chưa
+        if (req.query.state) {
+            if (Array.isArray(req.query.state)) {
+                query.is_used = {$in : req.query.state.map((item) => parseInt(item, 10))}  ;
+            } else {
+                query.is_used = parseInt(req.query.state);
+            }
+        }
+
+        if (req.query.sortBy) {
+            const parts = splitString(req.query.sortBy)
+            sort[parts[0]] = parts[1]
+        }
+
+        const page = parseInt(req.query.page) - 1 || 0
+        const limit = 3
+
+        console.log(query)
+        query.status = 3
+        if(query.start_time){
+            query.start_time.$lt = new Date(Date.now());
+        }else {
+            query.start_time = {
+                $lt: new Date(Date.now())
+            };
+        }
+        if(query.finish_time){
+            query.finish_time.$gt = new Date(Date.now());
+        }else {
+            query.finish_time = {
+                $gt: new Date(Date.now())
+            };
+        }
+
+        const products = await Product.find(query)
+            .sort(sort)
+            .skip(page*limit)
+            .limit(limit)
+
+        const total = await Product.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
 
         if (products.length !== 0) {
             for (let i = 0; i < products.length; i++) {
@@ -653,8 +831,20 @@ exports.getProductsByFilter = async (req, res) => {
                 }
             }
         }
-
-        res.status(200).json(products)
+        if(sort.bid_count){
+            if(sort.bid_count === 1){
+                products.sort((a, b) => a.count - b.count);
+            }else
+            products.sort((a, b) => b.count - a.count);
+        }
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products
+        }
+        res.status(200).json(response)
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' })
     }
