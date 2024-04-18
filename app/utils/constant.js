@@ -143,3 +143,25 @@ module.exports.formatDateTime = (inputDateString) => {
 
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
+
+module.exports.splitString = (str) => {
+
+    var dashIndex = str.indexOf('-');
+
+    var firstPart = str.slice(0, dashIndex);
+    var secondPart = str.slice(dashIndex + 1);
+    if(secondPart === 'desc'){
+        return [firstPart, -1];
+    }else
+        return [firstPart, 1];
+}
+
+module.exports.parseAdvance = (item,query) => {
+    if (item === '3') {
+        query.shipping_fee = 0;
+    } else if (item === '4') {
+        query.finish_time = { $lt: new Date(Date.now() + 24 * 60 * 60 * 1000) };
+    } else if (item === '5') {
+        query.start_time = { $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) };
+    }
+}
