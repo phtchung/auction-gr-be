@@ -14,21 +14,30 @@ const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/
 const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance} = require("../utils/constant");
+const {da} = require("@faker-js/faker");
 
 
 exports.getBiddingList = async (req, res) => {
     try {
         const userId = req.userId
+
+        const page = parseInt(req.query.page)
+        const LIMIT = 5;
+
         const product_biddings = await Auction.aggregate([
             {
                 $match: {user: new mongoose.Types.ObjectId(userId)}
             },
             {
                 $group: {
-                    _id: '$product_id'
+                    _id: '$product_id',
                 }
+            },
+            {
+                $sort: {createdAt: -1}
             }
         ])
+
         const productIds = product_biddings.length > 0 ? product_biddings.map((item) => item._id) : []
 
         const biddingInfor = await Auction.aggregate([
@@ -46,6 +55,7 @@ exports.getBiddingList = async (req, res) => {
             },
             {$replaceRoot: {newRoot: '$document'}}
         ])
+
         const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.product_id) : []
 
         const data = await Product.find(
@@ -58,6 +68,10 @@ exports.getBiddingList = async (req, res) => {
             .populate('seller_id', 'name average_rating')
             .lean()
 
+        if(data.length === 0){
+            return res.status(200).json({data : [], currentPage : page , nextPage : null })
+        }
+
         const mergedArray = data.map((product) => {
             const correspondingBid = biddingInfor.find((bid) => bid.product_id.equals(product._id))
 
@@ -67,12 +81,18 @@ exports.getBiddingList = async (req, res) => {
                 bidder: correspondingBid.username
             }
         })
-
-        return res.status(200).json(mergedArray)
+        const countItem = mergedArray.length
+        return res.status(200).json(
+            {
+                data : mergedArray.slice(page, page + LIMIT),
+                currentPage : page ,
+                nextPage :  page + LIMIT < countItem ? page + LIMIT : null
+            })
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
 
 exports.getTopBidOfProduct = async (req, res) => {
     try {
@@ -241,6 +261,24 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
         //     })
         //     query.category_id = { $in: childs.map(child => child._id)}
         // }
+        // lọc giá
+        const {minPrice , maxPrice } = req.query
+        if(minPrice && maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { $and: [{ final_price: { $gt: parseInt(minPrice) } }, { final_price: { $lt: parseInt(maxPrice) } }] }] },
+                { $and: [{ final_price: { $exists: false } }, { $and: [{ reserve_price: { $gt: parseInt(minPrice) } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }] },
+            ]
+        }else if(minPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $gt: parseInt(minPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $gt: parseInt(minPrice) } }] }
+            ]
+        }else if(maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $lt: parseInt(maxPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }
+            ]
+        }
 
         // lọc nâng cao
         if (req.query.advance) {
@@ -268,11 +306,9 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
                 sort[parts[0]] = parts[1]
             }
         }
-        console.log(sort)
 
         const page = parseInt(req.query.page) - 1 || 0
         const limit = 3
-
 
         query.status = 3
         query.seller_id = new mongoose.Types.ObjectId(user._id)
@@ -738,6 +774,27 @@ exports.getProductsByFilter = async (req, res) => {
 
         let query = {};
         let sort = {}
+
+        //price
+        const {minPrice , maxPrice } = req.query
+
+        if(minPrice && maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { $and: [{ final_price: { $gt: parseInt(minPrice) } }, { final_price: { $lt: parseInt(maxPrice) } }] }] },
+                { $and: [{ final_price: { $exists: false } }, { $and: [{ reserve_price: { $gt: parseInt(minPrice) } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }] },
+            ]
+        }else if(minPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $gt: parseInt(minPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $gt: parseInt(minPrice) } }] }
+            ]
+        }else if(maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $lt: parseInt(maxPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }
+            ]
+        }
+
         //cate con
         if (req.query.subcate) {
             query.category_id = new mongoose.Types.ObjectId(req.query.subcate)
@@ -792,7 +849,7 @@ exports.getProductsByFilter = async (req, res) => {
         const page = parseInt(req.query.page) - 1 || 0
         const limit = 3
 
-        console.log(query)
+
         query.status = 3
         if(query.start_time){
             query.start_time.$lt = new Date(Date.now());
