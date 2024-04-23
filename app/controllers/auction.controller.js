@@ -57,12 +57,16 @@ exports.getBiddingList = async (req, res) => {
         ])
 
         const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.product_id) : []
+        const query = {}
+        query.status = 3
+        query._id = {$in: products}
+        const { keyword } = req.query
+        if(keyword){
+            query.product_name = { $regex: keyword, $options: 'i' }
+        }
 
         const data = await Product.find(
-            {
-                _id: {$in: products},
-                status: 3
-            },
+            query
         )
             .select('product_name _id rank start_time reserve_price seller_id finish_time main_image')
             .populate('seller_id', 'name average_rating')
@@ -94,32 +98,7 @@ exports.getBiddingList = async (req, res) => {
 }
 
 
-exports.getTopBidOfProduct = async (req, res) => {
-    try {
-        const userId = req.userId
-        const productId = req.params.product_id
-        const topBidList = await Auction.aggregate([
-            {
-                $match: {product_id: new mongoose.Types.ObjectId(productId)}
-            },
-            {
-                $sort: {createdAt: -1}
-            },
-            {
-                $limit: 3
-            }
-        ])
-        const product = await Product.findById(
-            productId
-        ).select('step_price main_image reserve_price')
-            .lean()
 
-        const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
-        return res.status(200).json({list : topBidList, product , highest_price })
-    } catch (err) {
-        return res.status(500).json({message: 'DATABASE_ERROR 1', err})
-    }
-}
 
 exports.getFullBidOfProduct = async (req, res) => {
     try {
@@ -305,6 +284,10 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
             if(parts[0] !== 'bid_count'){
                 sort[parts[0]] = parts[1]
             }
+        }
+        const { keyword } = req.query
+        if(keyword){
+            query.product_name = { $regex: keyword, $options: 'i' }
         }
 
         const page = parseInt(req.query.page) - 1 || 0
@@ -930,6 +913,27 @@ exports.getRalatedProduct = async (req, res) => {
     }
 }
 
+const activeAuctions = {};
+
+// Hàm để khởi tạo socket cho phiên đấu giá
+const initAuctionSocket = (auctionId) => {
+
+    // Kiểm tra xem kết nối socket đã tồn tại hay chưa
+    if (!activeAuctions[auctionId]) {
+        // Tạo namespace socket cho phiên đấu giá
+        const auctionNamespace = main.io.of(`/auction/${auctionId}`);
+
+        // Xử lý sự kiện kết nối từ máy khách
+        auctionNamespace.on('connection', (socket) => {
+            console.log(`Máy khách đã kết nối với phiên đấu giá ${auctionId}`);
+
+        });
+
+        // Lưu trữ namespace và server tương ứng với phiên đấu giá
+        activeAuctions[auctionId] = { namespace: auctionNamespace };
+    }
+};
+
 exports.createOnlineAuction = async (req, res) => {
 
     try {
@@ -937,6 +941,9 @@ exports.createOnlineAuction = async (req, res) => {
         const username = req.username
         const productId = req.body.productId
         const winner_id = new mongoose.Types.ObjectId(userId)
+
+        initAuctionSocket(productId);
+        const auctionNamespace = activeAuctions[productId].namespace;
 
         const product = await Product.findOne({
                 _id: new mongoose.Types.ObjectId(productId),
@@ -970,12 +977,48 @@ exports.createOnlineAuction = async (req, res) => {
                 }
             ])
             const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+            // const new_bid = {
+            //     id : bid._id,
+            //     bid_price:bid.bid_price,
+            //     username:bid.username,
+            //     bid_time:bid.bid_time,
+            // }
 
-            main.io.emit(`auction-${productId}`, {topBidList,highest_price } );
+            auctionNamespace.emit(`auction`, {topBidList,highest_price } );
         }
-
         res.status(200).json({message: 'Thực hiện trả giá thành công'})
     } catch (err) {
         return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
+    }
+}
+
+exports.getTopBidOfProduct = async (req, res) => {
+    try {
+        const userId = req.userId
+        const productId = req.params.product_id
+
+        initAuctionSocket(productId);
+        const auctionNamespace = activeAuctions[productId].namespace;
+
+        const topBidList = await Auction.aggregate([
+            {
+                $match: {product_id: new mongoose.Types.ObjectId(productId)}
+            },
+            {
+                $sort: {createdAt: -1}
+            },
+            {
+                $limit: 3
+            }
+        ])
+        const product = await Product.findById(
+            productId
+        ).select('step_price main_image reserve_price')
+            .lean()
+
+        const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+        return res.status(200).json({list : topBidList, product , highest_price })
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR 1', err})
     }
 }
