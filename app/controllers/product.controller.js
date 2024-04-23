@@ -200,7 +200,7 @@ exports.getReqCount = async (req, res) => {
         })
         const count_failR = await Product.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
-            status: 10
+            status: { $in: [10,11]},
         })
         const count_retR = await Product.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
