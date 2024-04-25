@@ -11,5 +11,7 @@ module.exports = function (app) {
 
   app.post('/auth/signin', controller.signin)
 
+  app.post('/auth/logout', controller.logout)
+
   app.post('/admin/auth/signin', controller.adminSignin)
 }

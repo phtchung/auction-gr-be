@@ -15,6 +15,7 @@ const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance} = require("../utils/constant");
 const {da} = require("@faker-js/faker");
+const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -913,29 +914,7 @@ exports.getRalatedProduct = async (req, res) => {
     }
 }
 
-const activeAuctions = {};
-
-// Hàm để khởi tạo socket cho phiên đấu giá
-const initAuctionSocket = (auctionId) => {
-
-    // Kiểm tra xem kết nối socket đã tồn tại hay chưa
-    if (!activeAuctions[auctionId]) {
-        // Tạo namespace socket cho phiên đấu giá
-        const auctionNamespace = main.io.of(`/auction/${auctionId}`);
-
-        // Xử lý sự kiện kết nối từ máy khách
-        auctionNamespace.on('connection', (socket) => {
-            console.log(`Máy khách đã kết nối với phiên đấu giá ${auctionId}`);
-
-        });
-
-        // Lưu trữ namespace và server tương ứng với phiên đấu giá
-        activeAuctions[auctionId] = { namespace: auctionNamespace };
-    }
-};
-
 exports.createOnlineAuction = async (req, res) => {
-
     try {
         const userId = req.userId
         const username = req.username
@@ -954,39 +933,38 @@ exports.createOnlineAuction = async (req, res) => {
             })
 
         if (!product) {
-            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá 1'})
-        }else
-        {
-            const bid = new Auction({
-                product_id: new mongoose.Types.ObjectId(productId),
-                user: new mongoose.Types.ObjectId(userId),
-                username: username,
-                bid_price: parseInt(req.body?.final_price),
-                bid_time: new Date(),
-            })
-            await bid.save();
-            const topBidList = await Auction.aggregate([
-                {
-                    $match: {product_id: new mongoose.Types.ObjectId(productId)}
-                },
-                {
-                    $sort: {createdAt: -1}
-                },
-                {
-                    $limit: 3
-                }
-            ])
-            const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
-            // const new_bid = {
-            //     id : bid._id,
-            //     bid_price:bid.bid_price,
-            //     username:bid.username,
-            //     bid_time:bid.bid_time,
-            // }
-
-            auctionNamespace.emit(`auction`, {topBidList,highest_price } );
+            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
         }
-        res.status(200).json({message: 'Thực hiện trả giá thành công'})
+        const bid = new Auction({
+            product_id: new mongoose.Types.ObjectId(productId),
+            user: new mongoose.Types.ObjectId(userId),
+            username: username,
+            bid_price: parseInt(req.body?.final_price),
+            bid_time: new Date(),
+        })
+        await bid.save();
+        // const topBidList = await Auction.aggregate([
+        //     {
+        //         $match: {product_id: new mongoose.Types.ObjectId(productId)}
+        //     },
+        //     {
+        //         $sort: {createdAt: -1}
+        //     },
+        //     {
+        //         $limit: 3
+        //     }
+        // ])
+        // const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+        const new_bid = {
+            id: bid._id,
+            bid_price: bid.bid_price,
+            username: bid.username,
+            bid_time: bid.bid_time,
+        }
+
+        auctionNamespace.emit(`auction`, new_bid)
+
+        res.status(200).json({message: 'Thực hiện trả giá thành công', new_bid})
     } catch (err) {
         return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
     }

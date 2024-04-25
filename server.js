@@ -2,22 +2,10 @@ const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
 const {startBiddingJob, startUpdateDeliveryJob, cancelDeliveryJob,} = require("./cronjob");
+const {app, server,io} = require("./app/socket/socket");
 require('dotenv').config()
 
 // var usersRouter = require('./app/routes/user.routes');
-
-const app = express()
-const {createServer} = require('node:http');
-const {Server} = require('socket.io');
-const server = createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: '*',
-        allowedHeaders: ["my-custom-header"],
-        credentials: true
-    }
-});
-
 
 app.use(cors())
 
@@ -48,7 +36,6 @@ require('./app/routes/review.routes')(app)
 require('./app/routes/sse.routes')(app)
 require('./app/routes/notification.routes')(app)
 
-
 // app.use('/', sseRoute);
 
 startBiddingJob()
@@ -56,9 +43,6 @@ startUpdateDeliveryJob()
 cancelDeliveryJob()
 
 
-
-
-exports.io = io
 // set port, listen for requests
 const PORT = 8088
 server.listen(PORT, () => {
