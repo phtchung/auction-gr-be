@@ -35,6 +35,7 @@ require('./app/routes/blog.routes')(app)
 require('./app/routes/review.routes')(app)
 require('./app/routes/sse.routes')(app)
 require('./app/routes/notification.routes')(app)
+require('./app/routes/message.routes')(app)
 
 // app.use('/', sseRoute);
 

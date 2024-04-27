@@ -17,4 +17,6 @@ module.exports = function (app) {
 
   app.put('/user', [authJwt.verifyToken], controller.updateInfo)
 
+  app.get("/userSideBar",[authJwt.verifyToken], controller.getUsersForSidebar)
+
 }
