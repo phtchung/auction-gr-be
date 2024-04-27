@@ -107,27 +107,49 @@ exports.getUsersForSidebar = async (req, res) => {
         const loggedInUserId = req.userId;
 
         // đang để full user , sau thì sửa lại là lấy full người đã nhắn từng nhắn
-        const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password").lean();
+        const filteredUsers = await User.find({_id: {$ne: loggedInUserId}}).select("-password").lean();
 
-    let idx = 0
+        let idx = 0
         for (const rcvId of filteredUsers) {
-                const M = await Conversation.findOne({
-                    participants: {
-                        $all: [new mongoose.Types.ObjectId(loggedInUserId), rcvId._id]
+            let M = await Message.aggregate([
+                {
+                    $match: {
+                        $or: [
+                            {senderId: new mongoose.Types.ObjectId(loggedInUserId), receiverId: rcvId._id},
+                            {senderId: rcvId._id, receiverId: new mongoose.Types.ObjectId(loggedInUserId)}
+                        ]
                     }
-                });
-                if(M.messages){
-                    let lastM = await Message.findOne({
-                        _id : M.messages[M.messages.length - 1]
-                    })
-                    filteredUsers[idx] = {...filteredUsers[idx],lastM}
+                },
+                {
+                    $sort: {createdAt: -1}
+                },
+                {
+                    $limit: 1
                 }
-                idx++
+            ])
+
+            if (M) {
+                let lastM = M[0]
+                filteredUsers[idx] = {...filteredUsers[idx], lastM};
+            }
+            idx++
         }
+//init data
+        let index = 0
+        for (const rcvId of filteredUsers) {
+            let unReadM = await Message.countDocuments({
+                receiverId: new mongoose.Types.ObjectId(loggedInUserId),
+                senderId: rcvId._id,
+                status: 0
+            });
+            filteredUsers[index] = {...filteredUsers[index], unReadM};
+            index++
+        }
+
 
         res.status(200).json(filteredUsers);
     } catch (error) {
         console.error("Error in getUsersForSidebar: ", error.message);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 };
