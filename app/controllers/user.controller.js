@@ -2,6 +2,8 @@ const {mongoose} = require('mongoose')
 const User = require('../models/user.model')
 const Role = require('../models/role.model')
 const Notification = require("../models/notification.model");
+const Conversation = require("../models/conversation.model");
+const Message = require("../models/message.model");
 
 exports.allAccess = (req, res) => {
     res.status(200).send('Public Content.')
@@ -100,3 +102,32 @@ exports.updateInfo = async (req, res) => {
     }
 }
 
+exports.getUsersForSidebar = async (req, res) => {
+    try {
+        const loggedInUserId = req.userId;
+
+        // đang để full user , sau thì sửa lại là lấy full người đã nhắn từng nhắn
+        const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("-password").lean();
+
+    let idx = 0
+        for (const rcvId of filteredUsers) {
+                const M = await Conversation.findOne({
+                    participants: {
+                        $all: [new mongoose.Types.ObjectId(loggedInUserId), rcvId._id]
+                    }
+                });
+                if(M.messages){
+                    let lastM = await Message.findOne({
+                        _id : M.messages[M.messages.length - 1]
+                    })
+                    filteredUsers[idx] = {...filteredUsers[idx],lastM}
+                }
+                idx++
+        }
+
+        res.status(200).json(filteredUsers);
+    } catch (error) {
+        console.error("Error in getUsersForSidebar: ", error.message);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
