@@ -18,6 +18,16 @@ exports.sendMessage = async (req, res) => {
                 participants: [senderId, receiverId],
             });
         }
+        // update hết các tin nhắn trước thành read
+        await Message.updateMany(
+            {
+                receiverId: req.userId,
+                senderId: receiverId
+            },
+            {
+                $set: { status: 1 }
+            }
+        );
 
         const newMessage = new Message({
             senderId,
@@ -38,7 +48,6 @@ exports.sendMessage = async (req, res) => {
         }
 
         res.status(201).json(newMessage);
-
     } catch (err) {
         return res.status(500).json({message: 'Internal Server error', err})
     }
@@ -52,6 +61,16 @@ exports.getMessages = async (req, res) => {
         const conversation = await Conversation.findOne({
             participants: { $all: [senderId, userToChatId] },
         }).populate("messages"); // NOT REFERENCE BUT ACTUAL MESSAGES
+
+        await Message.updateMany(
+            {
+                receiverId: req.userId,
+                senderId: userToChatId
+            },
+            {
+                $set: { status: 1 }
+            }
+        );
 
         if (!conversation) return res.status(200).json([]);
 
