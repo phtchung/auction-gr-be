@@ -105,12 +105,23 @@ exports.updateInfo = async (req, res) => {
 exports.getUsersForSidebar = async (req, res) => {
     try {
         const loggedInUserId = req.userId;
+        const conversations = await Conversation.find({ participants: loggedInUserId })
+            .populate({
+            path: 'participants',
+            select: '_id username'
+        }).lean()
 
-        // đang để full user , sau thì sửa lại là lấy full người đã nhắn từng nhắn
-        const filteredUsers = await User.find({_id: {$ne: loggedInUserId}}).select("-password").lean();
+        let chatList = [];
+        conversations.forEach(conversation => {
+            conversation.participants.forEach(participant => {
+                if (participant._id.toString() !== loggedInUserId) {
+                    chatList.push(participant);
+                }
+            });
+        });
 
         let idx = 0
-        for (const rcvId of filteredUsers) {
+        for (const rcvId of chatList) {
             let M = await Message.aggregate([
                 {
                     $match: {
@@ -130,24 +141,23 @@ exports.getUsersForSidebar = async (req, res) => {
 
             if (M) {
                 let lastM = M[0]
-                filteredUsers[idx] = {...filteredUsers[idx], lastM};
+                chatList[idx] = {...chatList[idx], lastM};
             }
             idx++
         }
-//init data
+//init notify data
         let index = 0
-        for (const rcvId of filteredUsers) {
+        for (const rcvId of chatList) {
             let unReadM = await Message.countDocuments({
                 receiverId: new mongoose.Types.ObjectId(loggedInUserId),
                 senderId: rcvId._id,
                 status: 0
             });
-            filteredUsers[index] = {...filteredUsers[index], unReadM};
+            chatList[index] = {...chatList[index], unReadM};
             index++
         }
 
-
-        res.status(200).json(filteredUsers);
+        res.status(200).json(chatList);
     } catch (error) {
         console.error("Error in getUsersForSidebar: ", error.message);
         res.status(500).json({error: "Internal server error"});

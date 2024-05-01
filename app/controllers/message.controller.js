@@ -6,7 +6,7 @@ const {io, getReceiverSocketId} = require("../socket/socket");
 exports.sendMessage = async (req, res) => {
     try {
         const senderId = req.userId
-        const { message } = req.body;
+        const { message,username  } = req.body;
         const { id: receiverId } = req.params;
 
         let conversation = await Conversation.findOne({
@@ -42,9 +42,10 @@ exports.sendMessage = async (req, res) => {
         await Promise.all([conversation.save(), newMessage.save()]);
 
         const receiverSocketId = getReceiverSocketId(receiverId);
+        console.log(receiverSocketId)
         if (receiverSocketId) {
             // io.to(<socket_id>).emit() used to send events to specific client
-            io.to(receiverSocketId).emit("newMessage", newMessage);
+            io.to(receiverSocketId).emit("newMessage", {...newMessage._doc,username});
         }
 
         res.status(201).json(newMessage);

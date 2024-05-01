@@ -7,7 +7,7 @@ module.exports = function (app) {
     next()
   })
 
-  app.post('/auth/signup', [verifySignUp.checkDuplicateEmail, verifySignUp.checkRolesExisted], controller.signup)
+  app.post('/auth/signup', [ verifySignUp.checkRolesExisted], controller.signup)
 
   app.post('/auth/signin', controller.signin)
 
