@@ -1,93 +1,111 @@
 const config = require('../config/auth.config')
 const db = require('../models')
-const User = db.user
-const Role = db.role
+const User = require('../models/user.model')
+const Role = require('../models/role.model')
 
 var jwt = require('jsonwebtoken')
 var bcrypt = require('bcryptjs')
 
-exports.signup = (req, res) => {
-  const user = new User({
-    email: req.body.email,
-    password: bcrypt.hashSync(req.body.password, 8),
-    name: req.body.name,
-    username: req.body.username,
-    point: req.body.point,
-    phone: req.body.phone,
-    active: req.body.active,
-    gender: req.body.gender
-  })
+exports.signup = async (req, res) => {
+    try {
+        const {name, username, email, password, phone} = req.body;
 
-  user
-    .save()
-    .then((savedUser) => {
-      if (req.body.roles) {
-        if (req.body.roles === 'admin') {
-          res.status(500).send({ message: 'Can not sign up with admin' })
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({error: "Invalid email format"});
         }
-        Role.find({ name: { $in: req.body.roles } })
-          .then((roles) => {
-            user.roles = roles.map((role) => role._id)
-            user.save()
-            res.send({ message: 'User was registered successfully!' })
-          })
-          .catch((err) => {
-            res.status(500).send({ message: err })
-          })
-      } else {
-        Role.findOne({ name: 'user' })
-          .then((role) => {
-            user.roles = [role._id]
-            user.save()
-            res.send({ message: 'User was registered successfully!' })
-          })
-          .catch((err) => {
-            res.status(500).send({ message: err })
-          })
-      }
-    })
-    .catch((err) => {
-      res.status(500).send({ message: err })
-    })
+
+        const existingUser = await User.findOne({username});
+        if (existingUser) {
+            return res.status(400).json({error: "Username is already taken"});
+        }
+
+        const existingEmail = await User.findOne({email});
+        if (existingEmail) {
+            return res.status(400).json({error: "Email is already taken"});
+        }
+
+        const existingPhone = await User.findOne({phone});
+        if (existingPhone) {
+            return res.status(400).json({error: "Phone number is already taken"});
+        }
+
+        if (password.length < 6) {
+            return res.status(400).json({error: "Password must be at least 6 characters long"});
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const role = await Role.findOne({name: 'user'})
+
+        const newUser = new User({
+            email,
+            username,
+            name,
+            phone,
+            password: hashedPassword,
+            roles: [role._id]
+        });
+
+        if (newUser) {
+            const token = jwt.sign({id: newUser._id, username: newUser.username}, config.secret, {
+                algorithm: 'HS256',
+                allowInsecureKeySizes: true,
+                expiresIn: 86400 // 24 hours
+            })
+            await newUser.save();
+
+            res.status(201).json({
+                id: newUser._id,
+                name: newUser.name,
+                username: newUser.username,
+                email: newUser.email,
+                phone: newUser.phone,
+                followers: newUser.followers,
+                following: newUser.following,
+                accessToken : token,
+            });
+        } else {
+            res.status(400).json({error: "Invalid user data"});
+        }
+
+    } catch(error) {
+        console.log("Error in signup controller", error.message);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
 }
 
-exports.signin = (req, res) => {
-  User.findOne({
-    email: req.body.email
-  })
-    .populate('roles', '-__v')
-    .then((user) => {
-      if (!user || user.roles[0].name !== 'user') {
-        return res.status(404).send({ message: 'Email Not found.' })
-      }
+exports.signin = async (req, res) => {
+    try {
+        const {email, password} = req.body;
+        const user = await User.findOne({email}).populate('roles', '-__v')
 
-      var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
+        const isPasswordCorrect = bcrypt.compareSync(password, user?.password || "")
 
-      if (!passwordIsValid) {
-        return res.status(401).send({
-          accessToken: null,
-          message: 'Invalid Password!'
+        if (!user || !isPasswordCorrect) {
+            return res.status(400).json({error: "Invalid username or password"});
+        }
+
+        const token = jwt.sign({id: user._id, username: user.username}, config.secret, {
+            algorithm: 'HS256',
+            allowInsecureKeySizes: true,
+            expiresIn: 86400 // 24 hours
         })
-      }
+        var authorities = user.roles.map((role) => 'ROLE_' + role.name.toUpperCase())
 
-      const token = jwt.sign({ id: user.id,username:user.username }, config.secret, {
-        algorithm: 'HS256',
-        allowInsecureKeySizes: true,
-        expiresIn: 86400 // 24 hours
-      })
+        res.status(200).send({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            roles: authorities,
+            accessToken : token
+        });
 
-      var authorities = user.roles.map((role) => 'ROLE_' + role.name.toUpperCase())
-
-      res.status(200).send({
-        id: user._id,
-        email: user.email,
-        roles: authorities,
-        accessToken: token
-      })
-    })
-    .catch((err) => {
-      res.status(500).send({ message: err })
-    })
+    } catch (error) {
+        console.log("Error in login controller", error.message);
+        res.status(500).json({error: "Internal Server Error"});
+    }
 }
 
 exports.adminSignin = (req, res) => {
@@ -97,7 +115,7 @@ exports.adminSignin = (req, res) => {
         .populate('roles', '-__v')
         .then((user) => {
             if (!user || user.roles[0].name !== 'admin') {
-                return res.status(404).send({ message: 'Email not found.' })
+                return res.status(404).send({message: 'Email not found.'})
             }
             var passwordIsValid = bcrypt.compareSync(req.body.password, user.password)
 
@@ -108,7 +126,7 @@ exports.adminSignin = (req, res) => {
                 })
             }
 
-            const token = jwt.sign({ id: user.id }, config.secret, {
+            const token = jwt.sign({id: user.id}, config.secret, {
                 algorithm: 'HS256',
                 allowInsecureKeySizes: true,
                 expiresIn: 86400 // 24 hours
@@ -124,15 +142,15 @@ exports.adminSignin = (req, res) => {
             })
         })
         .catch((err) => {
-            res.status(500).send({ message: err })
+            res.status(500).send({message: err})
         })
 }
 
 exports.logout = (req, res) => {
     try {
-        res.status(200).json({ message: "Logged out successfully" });
+        res.status(200).json({message: "Logged out successfully"});
     } catch (error) {
         console.log("Error in logout controller", error.message);
-        res.status(500).json({ error: "Internal Server Error 1" });
+        res.status(500).json({error: "Internal Server Error 1"});
     }
 };
