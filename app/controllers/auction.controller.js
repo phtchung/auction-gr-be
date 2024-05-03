@@ -13,8 +13,7 @@ const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
-const {splitString, parseAdvance} = require("../utils/constant");
-const {da} = require("@faker-js/faker");
+const {splitString, parseAdvance, formatDateTime} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 
 
@@ -376,9 +375,20 @@ exports.checkoutProductController = async (req, res) => {
     console.log('rs',result);
     res.status(result.statusCode).json(result);
     if (!result.error) {
+        const temp = new Date()
+        temp.setDate(temp.getDate() + 3);
+        temp.setHours(23, 59, 0, 0);
+        await Product.findOneAndUpdate(
+            {
+                _id: result.data._id,
+                status: 5,
+                isDeliInfor: 1
+            },
+            { $set: { delivery_before: temp } },
+        );
         const data = new Notification ({
             title : 'Đấu giá thành công',
-            content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công. Mau xác nhận đơn hàng!`,
+            content : `Sản phẩm #${result.data._id.toString()} đã được đấu giá thành công. Mau xác nhận đơn hàng trươớc ${formatDateTime(temp)}!`,
             url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=5`,
             type : 1,
             receiver : [result.data.seller_id],

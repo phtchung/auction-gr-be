@@ -1,7 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
-const {startBiddingJob, startUpdateDeliveryJob, cancelDeliveryJob,} = require("./cronjob");
+const {startBiddingJob, startUpdateDeliveryJob,NotifyConfirmDeliveryJob, cancelDeliveryJob,} = require("./cronjob");
 const {app, server,io} = require("./app/socket/socket");
 require('dotenv').config()
 
@@ -42,7 +42,7 @@ require('./app/routes/message.routes')(app)
 startBiddingJob()
 startUpdateDeliveryJob()
 cancelDeliveryJob()
-
+NotifyConfirmDeliveryJob()
 
 // set port, listen for requests
 const PORT = 8088

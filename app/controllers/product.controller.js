@@ -17,8 +17,11 @@ exports.getAuctionHistory = async (req, res) => {
         const userId = req.userId
         const status = req.body.status
         const products = await Product.find({winner_id: new mongoose.Types.ObjectId(userId), status})
+            .sort({ updatedAt: -1 })
+            .select('product_name rank reserve_price final_price product_delivery main_image is_review review_before')
             .lean()
             .populate('seller_id', 'name')
+
 
         res.status(200).json(products)
     } catch (error) {
@@ -35,7 +38,9 @@ exports.getAuctionHistoryDetail = async (req, res) => {
             _id: new mongoose.Types.ObjectId(productId)
         })
             .select('product_name main_image product_delivery rank shipping_fee reserve_price final_price victory_time')
+            .populate('seller_id','name username')
             .lean()
+
 
         res.status(200).json(product)
     } catch (error) {

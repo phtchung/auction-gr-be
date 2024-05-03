@@ -37,9 +37,9 @@ exports.BuyProduct = async (req, res) => {
             product.final_price =  req.body.final_price
             product.isDeliInfor = 0
             product.winner_id = winner_id
-            const temp = new Date(product.finish_time);
+            const temp = new Date()
             temp.setDate(temp.getDate() + 2);
-            temp.setHours(23, 59, 59, 999);
+            temp.setHours(23, 59, 59, 0);
             product.procedure_complete_time = temp
             await product.save()
 
@@ -110,7 +110,7 @@ exports.checkoutProduct = async (req, res) => {
             _id: new mongoose.Types.ObjectId(req.body.product_id)
         })
         if (product.status === 4) {
-            // = 0 tiền mặt , bằng 1 : momo , bằng 2 : vnpay
+            // = 0 tiền mặt , bằng 1 : momo , bằng 2 : zlpay
             if(req.body?.payment_method === 0){
                 const delivery = new Delivery({
                     name: req.body.name,

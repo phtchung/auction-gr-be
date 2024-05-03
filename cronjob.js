@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const Product = require("./app/models/product.model");
 const User = require("./app/models/user.model");
 
-
+// update trạng thái sản phẩm ( chuyển sang đấu giá )
 const updateBiddingProduct = async () => {
     const currentTime = new Date();
 
@@ -16,6 +16,7 @@ const updateBiddingProduct = async () => {
     );
 
 };
+
 const startBiddingJob = () => {
     const job = new cron.schedule(
         '* * * * *', async function() {
@@ -55,11 +56,12 @@ const startFinishSuccessAuctionJob = () => {
     job2.start();
 };
 
+// tự động hopoanf thành sau 7 ngày
 const doneDelivery = async () => {
      await Product.updateMany(
         {
             status: 7,
-            'product_delivery.delivery_start_time': { $lt : new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+            'product_delivery.delivery_start_time': { $lt : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
             'product_delivery.completed_time': { $exists: false }
         },
         [
@@ -69,27 +71,12 @@ const doneDelivery = async () => {
                     'product_delivery.status': 8,
                     'product_delivery.completed_time': new Date(),
                     is_review:0,
-                    review_before: { $add: ["$victory_time", 20 * 24 * 60 * 60 * 1000] },
+                    review_before: { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] },
                 }
             }
         ]
     );
-    const updatedProducts = await Product.find({
-        status: 8,
-        'product_delivery.delivery_start_time': { $lt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000)},
-        get_point : 0
-    });
 
-    await User.updateMany({
-            _id: { $in: updatedProducts.map(product => product.seller_id) },
-                },
-        { $inc: { point: 100 } }
-    );
-    await Product.updateMany({
-            _id: { $in: updatedProducts.map(product => product._id) },
-        },
-        { get_point: 1 }
-    );
 };
 const startUpdateDeliveryJob = () => {
     const job4 = new cron.schedule(
@@ -101,7 +88,7 @@ const startUpdateDeliveryJob = () => {
 
 // hủy đơn khi quá hạn điền thông tin
 const cancelDelivery = async () => {
-    await Product.updateMany(
+    const rs = await Product.updateMany(
         {
             status: 4,
             isDeliInfor:0,
@@ -118,7 +105,21 @@ const cancelDelivery = async () => {
         ]
     );
 //     còn đoạn trừ điểm người dùng nữa
+    if(rs.modifiedCount > 0 ){
+        const canceledOrders = await Product.find({
+            status: 11,
+            isDeliInfor:0,
+            cancel_time: { $exists: true }
+        }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
+            .populate('winner_id');
 
+        for (const order of canceledOrders) {
+            await User.updateOne(
+                { _id: order.winner_id._id },
+                { $inc: { point: -200 } }
+            );
+        }
+    }
 };
 
 const cancelDeliveryJob = () => {
@@ -129,6 +130,51 @@ const cancelDeliveryJob = () => {
     job5.start();
 };
 
+
+const NotifyConfirmDelivery = async () => {
+    const rs = await Product.updateMany(
+        {
+            status: 5,
+            isDeliInfor:1,
+            delivery_before: { $lt : new Date() },
+            product_delivery: { $exists: true }
+        },
+        [
+            {
+                $set: {
+                    status: 11,
+                    cancel_time:new Date()
+                }
+            }
+        ]
+    );
+//     còn đoạn trừ điểm người dùng nữa
+    if(rs.modifiedCount > 0 ){
+        const canceledOrders = await Product.find({
+            status: 11,
+            isDeliInfor:1,
+            cancel_time: { $exists: true }
+        }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
+            .populate('seller_id');
+
+        for (const order of canceledOrders) {
+            await User.updateOne(
+                { _id: order.seller_id._id },
+                { $inc: { shop_point: -10 } }
+            );
+        }
+    }
+};
+
+const NotifyConfirmDeliveryJob = () => {
+    const job6 = new cron.schedule(
+        '* * * * *', async function() {
+            await NotifyConfirmDelivery();
+        });
+    job6.start();
+};
+
+
 module.exports = {
-    startBiddingJob,startUpdateDeliveryJob,cancelDeliveryJob
+    startBiddingJob,startUpdateDeliveryJob,cancelDeliveryJob,NotifyConfirmDeliveryJob
 };

@@ -165,3 +165,19 @@ module.exports.parseAdvance = (item,query) => {
         query.start_time = { $gt: new Date(Date.now() - 24 * 60 * 60 * 1000) };
     }
 }
+
+module.exports.calculatePoints = (price) => {
+    let points = 0;
+
+    if (price < 1000000) {
+        points = ( price / 1000 ) * 0.05;
+    } else if (price >= 1000000 && price < 10000000) {
+        points = ( price / 1000 ) * 0.07;
+    } else if (price >= 10000000) {
+        points = ( price / 1000 ) * 0.08;
+    }
+    if (points % 1 !== 0) {
+        points = Math.ceil(points);
+    }
+    return points;
+}

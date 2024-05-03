@@ -41,6 +41,10 @@ const User = mongoose.model(
                 type : Number,
                 default : 100
             },
+            shop_point: {
+                type : Number,
+                default : 100
+            },
             phone: String,
             average_rating: Number,
             date_of_birth: Date,
