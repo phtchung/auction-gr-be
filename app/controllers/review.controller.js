@@ -17,11 +17,11 @@ exports.UserReviewProduct = async (req, res) => {
     try {
         const userId = req.userId
         const productId = req.body?.product_id
-        var results,imageUrls
+        var results, imageUrls
         if (req.files || req.files.length !== 0) {
             //multifile
             const uploadPromises = req.files.map(file => {
-                const blob = bucket.file(  Date.now()+ userId + file.originalname);
+                const blob = bucket.file(Date.now() + userId + file.originalname);
                 const blobStream = blob.createWriteStream(
                     {resumable: false});
 
@@ -39,14 +39,15 @@ exports.UserReviewProduct = async (req, res) => {
 
             results = await Promise.all(uploadPromises);
         }
-        if(results){
+        if (results) {
             imageUrls = results.map(item => item.url);
         }
 
         const product = await Product.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(productId),
                 winner_id: new mongoose.Types.ObjectId(userId),
-                status : 8
+                status: 8,
+                is_review: 0
             },
             {
                 $set: {
@@ -62,28 +63,34 @@ exports.UserReviewProduct = async (req, res) => {
             rv_image_list: imageUrls ? imageUrls : null,
         })
         await review.save()
-        const user = await User.findOneAndUpdate({
+        await User.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(userId),
             },
-            [
-                {
-                    $set: {
-                        point: { $add: ["$point", 100] },
+            {$inc: {point: 20}})
+        const rate = parseFloat(req.body.rate);
+        if (rate) {
+            await User.findOneAndUpdate({
+                    _id: product.seller_id,
+                },
+                [
+                    {
+                        $set: {
+                            rate_count: {$add: ["$rate_count", 1]},
+                            average_rating: {
+                                $divide: [
+                                    {
+                                        $add: [
+                                            {$multiply: ["$average_rating", "$rate_count"]}, rate
+                                        ]
+                                    },
+                                    {$add: ["$rate_count", 1]}
+                                ]
+                            }
+                        }
                     }
-                }
-            ])
-
-        await User.findOneAndUpdate({
-                _id: product.seller_id,
-            },
-            [
-                {
-                    $set: {
-                        point: { $add: ["$point", 100] },
-                    }
-                }
-            ])
-        res.status(200).json({message : 'Đánh giá thành công'})
+                ])
+        }
+        res.status(200).json({message: 'Đánh giá thành công'})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

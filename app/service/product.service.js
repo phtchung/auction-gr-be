@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const User = require("../models/user.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
+const {calculatePoints} = require("../utils/constant");
 require('dotenv').config()
 
 exports.updateByWinner = async (req, res) => {
@@ -24,6 +25,7 @@ exports.updateByWinner = async (req, res) => {
                 statusCode: 404,
             };
         }
+        let point = calculatePoints(check.final_price)
         if(status === 7 && newStatus === 8 ){
             product = await Product.findOneAndUpdate({
                     _id: new mongoose.Types.ObjectId(productId),
@@ -41,16 +43,25 @@ exports.updateByWinner = async (req, res) => {
                     }
                 ]
             )
-            await User.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(userId),
-                },
-                [
-                    {
-                        $set: {
-                            point: { $add: ["$point", 100] },
-                        }
-                    }
-                ])
+            await User.findOneAndUpdate(
+                { _id: new mongoose.Types.ObjectId(userId) },
+                { $inc: {  point: point } }
+            )
+            await User.findOneAndUpdate(
+                { _id: new mongoose.Types.ObjectId(check.seller_id) },
+                { $inc: {   product_done_count: 1 } }
+            );
+            // await User.findOneAndUpdate({
+            //         _id: new mongoose.Types.ObjectId(userId),
+            //     },
+            //     [
+            //         {
+            //             $set: {
+            //                 product_done_count : { $add: ["$product_done_count", 1] },
+            //                 point: { $add: ["$point", point] },
+            //             }
+            //         }
+            //     ])
             return { data: product, error: false, message: "success", statusCode: 200, status : 8 };
         }else if(status === 7 && newStatus === 9){
             product = await Product.findOneAndUpdate({
