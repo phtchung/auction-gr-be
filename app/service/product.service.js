@@ -13,7 +13,7 @@ exports.updateByWinner = async (req, res) => {
         const productId = req.body?.product_id
         const status = req.body?.state
         var product
-        const now = new Date()
+
         const check = await Product.findOne({
             _id: new mongoose.Types.ObjectId(productId),
         })
@@ -25,6 +25,8 @@ exports.updateByWinner = async (req, res) => {
                 statusCode: 404,
             };
         }
+        const now = new Date()
+        const tenDaysLater = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
         let point = calculatePoints(check.final_price)
         if(status === 7 && newStatus === 8 ){
             product = await Product.findOneAndUpdate({
@@ -101,10 +103,11 @@ exports.updateByWinner = async (req, res) => {
                     $set: {
                         status: newStatus,
                         'product_delivery.status': newStatus,
-                        'product_delivery.delivery_start_time': now
+                        'product_delivery.delivery_start_time': now,
+                        'product_delivery.return_before': tenDaysLater
                     }
                 })
-            return { data: product, error: false, message: "success", statusCode: 200, status : 7 };
+            return { data: product, error: false, message: "success", statusCode: 200, status : newStatus };
         }
     } catch (error) {
         return {

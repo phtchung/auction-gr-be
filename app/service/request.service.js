@@ -75,6 +75,7 @@ exports.createRequest = async (req) => {
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
             status: 1,
+            auction_live:parseInt(req.body?.auction_live),
             type_of_auction: 1,
             is_used : parseInt(req.body?.is_used),
             brand:req.body.brand ? req.body.brand : null,

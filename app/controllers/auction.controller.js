@@ -10,10 +10,10 @@ const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
 const sse = require("../sse");
-const {BuyProduct, finishAuctionProduct, checkoutProduct} = require("../service/auction.service");
+const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
-const {splitString, parseAdvance, formatDateTime} = require("../utils/constant");
+const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 
 
@@ -353,6 +353,21 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
     }
 }
 
+exports.finishAuctionOnlineController = async (req, res) => {
+    const result = await finishAuctionOnline(req);
+    res.status(result.statusCode).json(result);
+    if (!result.error && result.data?.winner_id) {
+        const data = {
+            title : 'Đấu giá thành công',
+            content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+            url :'',
+            type : 1,
+            receiver : [result.data?.winner_id],
+        }
+        sse.send( data, `buySuccess_${result.data?.winner_id.toString()}`);
+    }
+}
+
 exports.finishAuctionProductController = async (req, res) => {
     const result = await finishAuctionProduct(req);
     res.status(result.statusCode).json(result);
@@ -362,9 +377,9 @@ exports.finishAuctionProductController = async (req, res) => {
             content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
             url :'',
             type : 1,
-            receiver : [result.data.winner_id],
+            receiver : [result.data?.winner_id],
         }
-        sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
+        sse.send( data, `buySuccess_${result.data?.winner_id.toString()}`);
     }
 }
 
@@ -673,6 +688,7 @@ exports.getStandoutProduct = async (req, res) => {
                     {
                         status : 3,
                         finish_time: {$gt: new Date(), $exists: true},
+                        auction_live : {$ne : 1}
                     }
             },
             { $sort: { 'view': -1 }},
@@ -681,6 +697,51 @@ exports.getStandoutProduct = async (req, res) => {
         ])
 
         res.status(200).json(products)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getRealtimeProduct = async (req, res) => {
+    try {
+        const  type  = reqConvertType(req.body?.type)
+        const  { category } = req.body.query
+        let query = {
+            auction_live: 1,
+            type_of_auction : {$in : type},
+            finish_time: {$gt: new Date(), $exists: true},
+            status : 3
+        }
+        let cateIds
+        if (category && category !== '0'){
+            const categories = await Categories.find({
+                parent: new mongoose.Types.ObjectId(category)
+            }).select('_id')
+            cateIds = categories.map(cate => cate._id);
+            query.category_id = {$in : cateIds}
+        }
+        const page = parseInt(req.body.query.page) - 1 || 0
+
+        const limit = 15
+        const products = await Product
+            .find(query)
+            .skip(page*limit)
+            .limit(limit)
+            .select('_id product_name main_image finish_time')
+
+        const total = await Product.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
+
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products
+        }
+
+        res.status(200).json(response)
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
@@ -1001,7 +1062,7 @@ exports.getTopBidOfProduct = async (req, res) => {
         ])
         const product = await Product.findById(
             productId
-        ).select('step_price main_image reserve_price')
+        ).select('step_price main_image reserve_price finish_time')
             .lean()
 
         const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price

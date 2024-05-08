@@ -70,6 +70,65 @@ exports.BuyProduct = async (req, res) => {
     }
 }
 
+exports.finishAuctionOnline = async (req, res) => {
+    try {
+        const productId = req.body.productId
+       let product
+
+        const maxBid = await Auction.findOne({ product_id: new mongoose.Types.ObjectId(productId) })
+            .sort({ bid_time: -1 })
+            .populate('product_id','status finish_time auction_live ')
+            .lean();
+        console.log(maxBid)
+        if(maxBid) {
+            if (maxBid && maxBid.product_id.status === 3 && maxBid.product_id.finish_time.getTime() > new Date().getTime() && maxBid.product_id.auction_live === 1) {
+                const temp = new Date(maxBid.product_id.finish_time);
+                temp.setDate(temp.getDate() + 2);
+                temp.setHours(23, 59, 59, 999);
+
+                product = await Product.findOneAndUpdate({
+                        _id: new mongoose.Types.ObjectId(productId),
+                        status: 3,
+                    }, [
+                        {
+                            $set: {
+                                status: 4,
+                                isDeliInfor: 0,
+                                winner_id: maxBid.user,
+                                final_price: maxBid.bid_price,
+                                victory_time: maxBid.product_id.finish_time,
+                                procedure_complete_time: temp,
+                            }
+                        }
+                    ],
+                    { new: true }
+                )
+            }
+        }else {
+            product = await Product.findOneAndUpdate({
+                        _id: new mongoose.Types.ObjectId(productId)
+                    },[
+                        {
+                            $set: {
+                                status: 10,
+                            }
+                        }
+                    ],
+                    { new: true }
+                )
+            }
+
+        return { data: product, error: false, message: "Cập nhật trạng thái sản phẩm thành công", statusCode: 200 };
+    } catch (err) {
+        return {
+            data: [],
+            error: true,
+            message: " an error occurred",
+            statusCode: 500,
+        };
+    }
+}
+
 exports.finishAuctionProduct = async (req, res) => {
     try {
         const productId = req.body.productId
@@ -79,6 +138,7 @@ exports.finishAuctionProduct = async (req, res) => {
             status: 3,
             start_time: {$lt: new Date()},
         })
+
         if (product.winner_id && product.final_price && product.reserve_price < product.final_price) {
             product.status = 4
             product.victory_time = product.finish_time
