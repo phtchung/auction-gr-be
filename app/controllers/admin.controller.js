@@ -315,6 +315,7 @@ exports.adminCreateProductAution = async (req, res) => {
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
             admin_belong: 1,
+            auction_live : parseInt(req.body?.auction_live),
             status: 2,
             is_used : parseInt(req.body?.is_used),
             brand:req.body.brand ? req.body.brand : null,

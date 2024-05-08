@@ -1,3 +1,4 @@
+const {el} = require("@faker-js/faker");
 module.exports.adminProductStatus = function(status) {
     if (
         status === 2 ||
@@ -180,4 +181,11 @@ module.exports.calculatePoints = (price) => {
         points = Math.ceil(points);
     }
     return points;
+}
+module.exports.reqConvertType = (type) => {
+    if (type === "increase") {
+        return [1]
+    } else if (type === "decrease") {
+        return [-1]
+    } else return [-1, 1]
 }
