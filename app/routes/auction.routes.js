@@ -51,4 +51,11 @@ module.exports = function (app) {
 
   app.post('/auction/online/bid', [authJwt.verifyToken], controller. createOnlineAuction)
 
+  app.get('/checkoutDeposit/:id',[authJwt.verifyToken],controller.getCheckOutDeposit)
+
+  app.get('/getConfirmDeposit/:id',[authJwt.verifyToken],controller.getConfirmDeposit)
+
+  app.post('/auction/checkoutDeposit', [authJwt.verifyToken], controller.checkoutDeposit)
+
+
 }
