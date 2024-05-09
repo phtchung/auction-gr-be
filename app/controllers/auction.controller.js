@@ -5,6 +5,7 @@ const User = require("../models/user.model");
 const Categories = require("../models/category.model");
 const crypto = require("crypto");
 require('dotenv').config()
+const { customAlphabet } = require('nanoid')
 const axios = require('axios')
 const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
@@ -15,6 +16,9 @@ const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
+const Blog = require("../models/blog.model");
+const sendEmail = require("../utils/helper");
+const Registration = require("../models/registration");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -1069,5 +1073,254 @@ exports.getTopBidOfProduct = async (req, res) => {
         return res.status(200).json({list : topBidList, product , highest_price })
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR 1', err})
+    }
+}
+
+exports.getCheckOutDeposit = async (req, res) => {
+    try {
+        const id = req.params.id
+        const username = req.username
+        let product = await Product.findOne({
+            _id : new mongoose.Types.ObjectId(id),
+            auction_live: 2,
+            register_time : {$gt : new Date()}
+        })
+            .select('_id deposit_price product_name')
+
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found.' })
+        }
+
+        const content = `${username}-${product._id}`
+
+        res.status(200).json({...product._doc,content})
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+exports.getConfirmDeposit = async (req, res) => {
+    try {
+        const productId = req.params.id
+        const userId = req.userId
+        let registration
+        const product = await Product.findOne(
+            {
+                _id: new mongoose.Types.ObjectId(productId),
+                auction_live: 2,
+            },
+            'code_access product_name rank is_used deposit_price main_image'
+        );
+        if (!product) {
+            return res.status(404).json({ message: 'Product not found.' })
+        }
+
+        if(product?.code_access){
+            registration = await Registration.findOne({
+                user_id : new mongoose.Types.ObjectId(userId),
+                _id : { $in : product.code_access}
+            }).select('_id payment_method')
+        }
+        if(!registration){
+            return res.status(404).json({ message: 'Not registration.' })
+        }
+
+        res.status(200).json({...product._doc,registration})
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+exports.checkoutDeposit = async (req, res) => {
+    try {
+        const userId = req.userId
+        const username = req.username
+
+        const product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(req.body.product_id)
+        })
+        const user = await User.findById({
+            _id: userId
+        })
+
+        if (product?.auction_live === 2) {
+            //  bằng 1 : momo , bằng 2 : zalopay
+            if(req.body?.payment_method === 1){
+
+                var partnerCode = "MOMO"
+                // var accessKey = process.env.accessKey;
+                // var secretkey = process.env.
+                var accessKey = 'F8BBA842ECF85';
+                var secretKey = 'K951B6PE1waDMi640xX08PD3vg6EkVlz';
+                // chuỗi ngẫu nhiên để phân biệt cái request
+                var requestId = partnerCode + new Date().getTime() + "id";
+                // mã đặt đơn
+                var orderId = new Date().getTime() + ":0123456778";
+                //
+                var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
+                // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
+                var redirectUrl = `http://localhost:5173/confirm/${product._id}`
+                    // process.env.redirectUrlDeposit;
+                // Trang thank you
+                var ipnUrl = process.env.ipnUrl
+                // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
+                var amount =  product.deposit_price + 50000
+                // var requestType = "payWithATM";
+                // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
+                var requestType = "captureWallet";
+                var extraData = "hello"; //pass empty value if your merchant does not have stores
+
+                // var rawSignature = `accessKey=${accessKey}&amount=${amount}&extraData=${extraData}&ipnUrl=${ipnUrl}` +
+                //     `&orderId=${orderId}&orderInfo=${orderInfo}&partnerCode=${partnerCode}&redirectUrl=${redirectUrl}` +
+                //     `&requestId=${requestId}&requestType=${requestType}`;
+                var rawSignature = "accessKey="+accessKey+"&amount=" + amount+"&extraData=" + extraData+"&ipnUrl=" + ipnUrl+"&orderId=" + orderId+"&orderInfo=" + orderInfo+"&partnerCode=" + partnerCode +"&redirectUrl=" + redirectUrl+"&requestId=" + requestId+"&requestType=" + requestType
+
+                var signature = crypto
+                    .createHmac('sha256',secretKey)
+                    .update(rawSignature)
+                    .digest("hex")
+
+                const requestBody = JSON.stringify({
+                    partnerCode: partnerCode,
+                    accessKey: accessKey,
+                    requestId: requestId,
+                    amount: amount,
+                    orderId: orderId,
+                    orderInfo: orderInfo,
+                    redirectUrl: redirectUrl,
+                    ipnUrl: ipnUrl,
+                    extraData: extraData,
+                    requestType: requestType,
+                    signature: signature,
+                    lang: "vi",
+                })
+
+                const https = require("https");
+                const options = {
+                    hostname: "test-payment.momo.vn",
+                    port: 443,
+                    path: "/v2/gateway/api/create",
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Content-Length": Buffer.byteLength(requestBody),
+                    },
+                };
+                const reqq = https.request(options, resMom => {
+                    var url =''
+                    var rsCode
+                    console.log(`Status: ${resMom.statusCode}`);
+                    // console.log(`Headers: ${JSON.stringify(resMom.headers)}`);
+                    resMom.setEncoding("utf8");
+                    // trả về body là khi mình call momo
+                    resMom.on("data", (body) => {
+                        let parsedBody = JSON.parse(body)
+                        url += parsedBody.payUrl
+                        rsCode = parsedBody.resultCode
+                        // resultCode = parsedBody.resultCode
+                        // url dẫn đến tranh toán của momo
+                        console.log(parsedBody)
+                        // res.json({ payUrl: url, rsCode: rsCode });
+                    });
+                    resMom.on("end",  async () => {
+                        if(rsCode === 0){
+                            const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 8)
+                            const randomCode = nanoid()
+
+                            const registration = new Registration({
+                                user_id: new mongoose.Types.ObjectId(userId),
+                                payment_method: 1,
+                                code : randomCode,
+                            })
+
+                            if(registration){
+                                product.code_access.push(registration._id);
+                            }
+                            await Promise.all([product.save(), registration.save()]);
+
+                            if(registration){
+                                await sendEmail({ email: user.email , productName : product.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                            }
+                        }
+                        res.json({message: 'Thành công', payUrl: url});
+                        console.log("No more data in response.update xong");
+                    });
+                });
+                reqq.on("error", (e) => {
+                    console.log(`problem with request: ${e.message}`);
+                    return res.status(500).json({ error: 'Internal Server Error' });
+                })
+                console.log("Sending....");
+                reqq.write(requestBody);
+                reqq.end();
+            }
+            else if(req.body?.payment_method === 2){
+                const config = {
+                    appid: process.env.appid,
+                    key1: process.env.key1,
+                    key2: process.env.key2,
+                    endpoint: process.env.endpoint,
+                };
+                const embeddata = {
+                    "promotioninfo":"","merchantinfo":"embeddata123",
+                    "redirecturl": process.env.redirectUrl
+                };
+
+                const order = {
+                    appid: config.appid,
+                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
+                    appuser: "demo",
+                    apptime: Date.now(), // miliseconds
+                    item: "[]",
+                    embeddata: JSON.stringify(embeddata),
+                    amount: product.final_price + product.shipping_fee,
+                    description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
+                    bankcode:"zalopayapp",
+                };
+
+                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
+                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
+
+                var returnUrl = ''
+                var returncode = 0
+                 await axios.post(config.endpoint, null, { params: order })
+                    .then(res => {
+                        console.log(res.data);
+                        returnUrl += res.data.orderurl
+                       returncode +=res.data.returncode
+                    })
+                    .catch(err => console.log(err));
+
+                if(returncode === 1){
+                    const delivery = new Delivery({
+                        name: req.body.name,
+                        payment_method: "Zalopay",
+                        address: req.body.address,
+                        phone: req.body.phone,
+                        status: 5,
+                        _id: new mongoose.Types.ObjectId(req.body.product_id)
+                    })
+
+                    const newDlv = await delivery.save()
+                    delete newDlv._id
+
+                    const product1 = await Product.findOneAndUpdate(
+                        {
+                            _id: new mongoose.Types.ObjectId(req.body.product_id),
+                            winner_id: new mongoose.Types.ObjectId(userId)
+                        },{
+                            $set: {
+                                product_delivery: newDlv,
+                                status: 5,
+                                isDeliInfor:1
+                            },
+                        },{new: true}
+                    )
+                }
+                res.status(200).json({message: 'Thành công', payUrl: returnUrl});
+            }
+        }
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }

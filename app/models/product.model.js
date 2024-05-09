@@ -36,6 +36,7 @@ const Product = mongoose.model(
                 type: Number,
                 enum: [0,1],
             },
+            deposit_price:Number,
             sale_price: Number,
             reserve_price: Number,
             step_price: Number,
@@ -52,7 +53,7 @@ const Product = mongoose.model(
             },
             auction_live:{
                 type:Number,
-                enum:[0,1],
+                enum:[0,1,2],
             },
             delivery_from:String,
             can_return:{
@@ -76,6 +77,14 @@ const Product = mongoose.model(
             },
             is_review : Number,
             review_before:Date,
+            register_time : Date,
+            code_access: [
+                {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: "Registration",
+                    default: [],
+                },
+            ],
         },
         {timestamps: true}
     )
