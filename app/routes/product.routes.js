@@ -33,6 +33,9 @@ module.exports = function (app) {
 
     app.get('/auction/item/:productId', controller.getAuctionProductDetail)
 
+    app.get('/auction/realtime/item/:productId', controller.getProductRealTimeDetail)
+
+    app.get('/auction/stream/item/:productId', controller.getProductStreamDetail)
 
 
 }
