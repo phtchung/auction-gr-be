@@ -386,4 +386,64 @@ exports.getAuctionProductDetail = async (req, res) => {
     }
 }
 
+exports.getProductStreamDetail = async (req, res) => {
+    try {
+        const Id = req.params.productId
 
+        const  product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(Id),
+            auction_live: 2,
+            register_time: {$gt: new Date(), $exists: true},
+        })
+            .populate('seller_id category_id', 'name average_rating parent username product_done_count rate_count createdAt')
+
+        if (!product) {
+            return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
+        }
+        if(!product.view){
+            product.view = 1
+        }else {
+            product.view += 1
+        }
+        await product.save()
+        const parent = await Categories.findOne({
+            _id : product.category_id.parent
+        }).select('_id name')
+
+        res.status(200).json({...product._doc,parent})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getProductRealTimeDetail = async (req, res) => {
+    try {
+        const Id = req.params.productId
+
+        const  product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(Id),
+            auction_live: 1,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date(), $exists: true},
+            status : 3
+        })
+            .populate('seller_id category_id', 'name average_rating parent username product_done_count rate_count createdAt')
+
+        if (!product) {
+            return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
+        }
+        if(!product.view){
+            product.view = 1
+        }else {
+            product.view += 1
+        }
+        await product.save()
+        const parent = await Categories.findOne({
+            _id : product.category_id.parent
+        }).select('_id name')
+
+        res.status(200).json({...product._doc,parent})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
