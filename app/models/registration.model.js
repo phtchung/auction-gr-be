@@ -9,6 +9,11 @@ const Registration = mongoose.model(
                 ref: "User",
                 required: true,
             },
+            product_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Product",
+                required: true,
+            },
             code: {
                 type: String,
                 required: true,

@@ -37,8 +37,6 @@ module.exports = function (app) {
 
   app.get('/auction/standOut', controller.getStandoutProduct)
 
-  app.post('/auction/productRealtime',[authJwt.verifyToken], controller.getRealtimeProduct)
-
   app.get('/auction/prepareToEnd', controller.getProductPrepareEnd)
 
   app.get('/categories', controller.getCategories)
@@ -57,5 +55,7 @@ module.exports = function (app) {
 
   app.post('/auction/checkoutDeposit', [authJwt.verifyToken], controller.checkoutDeposit)
 
+  app.post('/auction/productRealtime',[authJwt.verifyToken], controller.getRealtimeProduct)
 
+  app.post('/auction/productStream',[authJwt.verifyToken], controller.getStreamProduct)
 }

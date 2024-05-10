@@ -16,9 +16,8 @@ const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
-const Blog = require("../models/blog.model");
 const sendEmail = require("../utils/helper");
-const Registration = require("../models/registration");
+const Registration = require("../models/registration.model");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -106,7 +105,6 @@ exports.getBiddingList = async (req, res) => {
 
 exports.getFullBidOfProduct = async (req, res) => {
     try {
-        const userId = req.userId
         const productId = req.params.product_id
         const fullBidList = await Auction.aggregate([
             {
@@ -751,6 +749,69 @@ exports.getRealtimeProduct = async (req, res) => {
     }
 }
 
+exports.getStreamProduct = async (req, res) => {
+    try {
+        const  type  = reqConvertType(req.body?.type)
+        const  { category } = req.body.query
+        const userId = req.userId
+        let query = {
+            auction_live: 2,
+            type_of_auction : {$in : type},
+            register_time: {$gt: new Date(), $exists: true},
+        }
+        let cateIds
+        if (category && category !== '0'){
+            const categories = await Categories.find({
+                parent: new mongoose.Types.ObjectId(category)
+            }).select('_id')
+            cateIds = categories.map(cate => cate._id);
+            query.category_id = {$in : cateIds}
+        }
+        const page = parseInt(req.body.query.page) - 1 || 0
+
+        const limit = 15
+        const products = await Product
+            .find(query)
+            .skip(page*limit)
+            .limit(limit)
+            .select('_id product_name main_image register_time')
+
+        // mảng id các sp
+        const productIds = products.map(product => product._id);
+
+        const registerProducts = await Registration.find({
+            user_id: new mongoose.Types.ObjectId(userId),
+            product_id: {$in : productIds}
+        })
+
+        const result = products.map(product => {
+            const registerItem = registerProducts.find((item) => item.product_id.toString() === product._id.toString());
+
+            return {
+                ...product.toObject(),
+                register: !!registerItem
+            };
+        });
+
+
+        const total = await Product.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
+
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products : result
+        }
+
+        res.status(200).json(response)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
 exports.getProductPrepareEnd = async (req, res) => {
     try {
         const products = await Product.aggregate([
@@ -1047,7 +1108,6 @@ exports.createOnlineAuction = async (req, res) => {
 
 exports.getTopBidOfProduct = async (req, res) => {
     try {
-        const userId = req.userId
         const productId = req.params.product_id
 
         initAuctionSocket(productId);
@@ -1080,6 +1140,7 @@ exports.getCheckOutDeposit = async (req, res) => {
     try {
         const id = req.params.id
         const username = req.username
+        const userId = req.userId
         let product = await Product.findOne({
             _id : new mongoose.Types.ObjectId(id),
             auction_live: 2,
@@ -1090,9 +1151,14 @@ exports.getCheckOutDeposit = async (req, res) => {
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' })
         }
-
+        const registration = await Registration.findOne({
+            user_id: new mongoose.Types.ObjectId(userId),
+            product_id : new mongoose.Types.ObjectId(id),
+        })
+        if(registration){
+            return res.status(404).json({ message: 'You was Registered.' })
+        }
         const content = `${username}-${product._id}`
-
         res.status(200).json({...product._doc,content})
     } catch (error) {
         res.status(500).json({ message: 'Internal server error' })
@@ -1134,11 +1200,17 @@ exports.getConfirmDeposit = async (req, res) => {
 exports.checkoutDeposit = async (req, res) => {
     try {
         const userId = req.userId
-        const username = req.username
 
         const product = await Product.findOne({
             _id: new mongoose.Types.ObjectId(req.body.product_id)
         })
+        const registration = await Registration.findOne({
+            user_id: new mongoose.Types.ObjectId(userId),
+            product_id : new mongoose.Types.ObjectId(req.body.product_id),
+        })
+        if(registration){
+            return res.status(404).json({ message: 'You was Registered.' })
+        }
         const user = await User.findById({
             _id: userId
         })
@@ -1229,6 +1301,7 @@ exports.checkoutDeposit = async (req, res) => {
 
                             const registration = new Registration({
                                 user_id: new mongoose.Types.ObjectId(userId),
+                                product_id : product._id,
                                 payment_method: 1,
                                 code : randomCode,
                             })
@@ -1263,7 +1336,8 @@ exports.checkoutDeposit = async (req, res) => {
                 };
                 const embeddata = {
                     "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": process.env.redirectUrl
+                    "redirecturl": `http://localhost:5173/confirm/${product._id}`,
+                    // process.env.redirectUrl
                 };
 
                 const order = {
@@ -1273,8 +1347,8 @@ exports.checkoutDeposit = async (req, res) => {
                     apptime: Date.now(), // miliseconds
                     item: "[]",
                     embeddata: JSON.stringify(embeddata),
-                    amount: product.final_price + product.shipping_fee,
-                    description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
+                    amount: product.deposit_price + 50000,
+                    description: `Auction - Thanh toán đăng ký đấu giá sản phẩm ${product.product_name}`,
                     bankcode:"zalopayapp",
                 };
 
@@ -1292,30 +1366,24 @@ exports.checkoutDeposit = async (req, res) => {
                     .catch(err => console.log(err));
 
                 if(returncode === 1){
-                    const delivery = new Delivery({
-                        name: req.body.name,
-                        payment_method: "Zalopay",
-                        address: req.body.address,
-                        phone: req.body.phone,
-                        status: 5,
-                        _id: new mongoose.Types.ObjectId(req.body.product_id)
+                    const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 8)
+                    const randomCode = nanoid()
+
+                    const registration = new Registration({
+                        user_id: new mongoose.Types.ObjectId(userId),
+                        product_id : product._id,
+                        payment_method: 2,
+                        code : randomCode,
                     })
 
-                    const newDlv = await delivery.save()
-                    delete newDlv._id
+                    if(registration){
+                        product.code_access.push(registration._id);
+                    }
+                    await Promise.all([product.save(), registration.save()]);
 
-                    const product1 = await Product.findOneAndUpdate(
-                        {
-                            _id: new mongoose.Types.ObjectId(req.body.product_id),
-                            winner_id: new mongoose.Types.ObjectId(userId)
-                        },{
-                            $set: {
-                                product_delivery: newDlv,
-                                status: 5,
-                                isDeliInfor:1
-                            },
-                        },{new: true}
-                    )
+                    if(registration){
+                        await sendEmail({ email: user.email , productName : product.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                    }
                 }
                 res.status(200).json({message: 'Thành công', payUrl: returnUrl});
             }

@@ -17,6 +17,8 @@ db.blog = require('./blog.model')
 db.notification = require('./notification.model')
 db.message = require('./message.model')
 db.conversation = require('./conversation.model')
+db.registration = require('./registration.model')
+
 
 db.ROLES = ['user', 'admin']
 
