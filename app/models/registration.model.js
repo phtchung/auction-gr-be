@@ -19,6 +19,7 @@ const Registration = mongoose.model(
                 required: true,
             },
             payment_method : Number,
+            code_access : String,
         },
         { timestamps: true }
     )

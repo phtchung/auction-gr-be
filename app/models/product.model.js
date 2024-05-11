@@ -78,6 +78,7 @@ const Product = mongoose.model(
             is_review : Number,
             review_before:Date,
             register_time : Date,
+            room_id : String,
             code_access: [
                 {
                     type: mongoose.Schema.Types.ObjectId,
