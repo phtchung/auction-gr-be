@@ -58,4 +58,9 @@ module.exports = function (app) {
   app.post('/auction/productRealtime',[authJwt.verifyToken], controller.getRealtimeProduct)
 
   app.post('/auction/productStream',[authJwt.verifyToken], controller.getStreamProduct)
+
+  app.post('/auction/checkPasswordStreamRoom',[authJwt.verifyToken], controller.checkPWStreamRoom)
+// nay là api cho phòng đấu giá , kia là cho đăng kí
+  app.post('/auction/streamGeneral',[authJwt.verifyToken], controller.getStreamAuctionGeneral)
+
 }

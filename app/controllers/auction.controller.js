@@ -793,7 +793,6 @@ exports.getStreamProduct = async (req, res) => {
             };
         });
 
-
         const total = await Product.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
@@ -1050,6 +1049,8 @@ exports.getRalatedProduct = async (req, res) => {
     }
 }
 
+
+// api cho 1 laanf trả giá
 exports.createOnlineAuction = async (req, res) => {
     try {
         const userId = req.userId
@@ -1392,3 +1393,95 @@ exports.checkoutDeposit = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
 }
+
+exports.checkPWStreamRoom = async (req, res) => {
+    try {
+        const productId = req.body.product_id
+        const codeFromUser = req.body.code
+        const userId = req.userId
+
+        if(!codeFromUser || !productId){
+            return res.status(404).json({message : 'Mật khẩu hoặc sản phẩm không tồn tại!'})
+        }
+
+        const checkRegis = await Registration.findOne({
+            user_id: new mongoose.Types.ObjectId(userId),
+            product_id: new mongoose.Types.ObjectId(productId),
+            code : codeFromUser
+        })
+
+        if(!checkRegis){
+            return res.status(404).json({message : 'Mật khẩu không chính xác. Bạn hãy thử lại!'})
+        }
+
+        const product = await Product.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            auction_live: 2,
+            status: 3,
+            start_time: {$lt: new Date()},
+        }).select('_id')
+        if(!product){
+            return res.status(404).json({message : 'Phiên đấu giá chưa bắt đầu !'})
+        }
+
+        const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 5)
+        var accessCode = nanoid()
+        checkRegis.code_access = accessCode
+        await checkRegis.save()
+
+        const response = {
+            status : 200,
+            message: 'Xác thức thành công!',
+            pathUrl: `http://localhost:5173/streamRoom/${product._id.toString()}?accessCode=${accessCode}`,
+            error: false
+        }
+        res.status(200).json(response);
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR',error: true, err})
+    }
+}
+
+exports.getStreamAuctionGeneral = async (req, res) => {
+    try {
+        const  type  = reqConvertType(req.body?.type)
+        const  { keyword } = req.body.query
+
+        let query = {
+            auction_live: 2,
+            status : 3,
+            type_of_auction : {$in : type},
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+        }
+        console.log(keyword)
+        if(keyword){
+            query.room_id = { $regex: keyword, $options: 'i' }
+        }
+
+        const page = parseInt(req.body.query.page) - 1 || 0
+
+        const limit = 15
+        const products = await Product
+            .find(query)
+            .skip(page*limit)
+            .limit(limit)
+            .select('_id product_name main_image finish_time room_id')
+
+        const total = await Product.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
+
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products : products
+        }
+
+        res.status(200).json(response)
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
