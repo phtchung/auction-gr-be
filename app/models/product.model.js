@@ -83,7 +83,6 @@ const Product = mongoose.model(
                 {
                     type: mongoose.Schema.Types.ObjectId,
                     ref: "Registration",
-                    default: [],
                 },
             ],
         },
