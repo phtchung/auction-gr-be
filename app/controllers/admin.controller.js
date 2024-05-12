@@ -7,8 +7,7 @@ const {format} = require("util");
 const {adminProductStatus, adminRequestStatus,
     createTitleWinner,
     createContentWinner,
-    createTitleSeller,
-    createContentSeller, formatDateTime
+    createContentSeller, formatDateTime, getNgayThangNam
 } = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
@@ -18,7 +17,7 @@ const sse = require("../sse/index")
 const {createBlog} = require("../service/blog.service");
 const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin} = require("../service/admin.service");
 const Notification = require("../models/notification.model");
-const {da} = require("@faker-js/faker");
+const {customAlphabet} = require("nanoid");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -310,7 +309,6 @@ exports.adminCreateProductAution = async (req, res) => {
             product_name: req.body?.product_name,
             rank: req.body?.rank,
             reserve_price: parseInt(req.body?.reserve_price),
-            sale_price: parseInt(req.body?.sale_price),
             shipping_fee: parseInt(req.body?.shipping_fee),
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
@@ -328,6 +326,19 @@ exports.adminCreateProductAution = async (req, res) => {
             image_list: imageUrls,
             main_image: main_image,
         })
+
+        if(product.auction_live === 0){
+            product.sale_price = parseInt(req.body?.sale_price) || null
+        }
+        if(product.auction_live){
+            product.register_time = req.body?.register_start
+            // product.register_finish = req.body?.register_finish
+            product.deposit_price = req.body?.deposit_price
+            const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 5)
+            product.room_id = getNgayThangNam() + nanoid()
+            product.code_access = []
+        }
+
         await product.save();
         res.status(200).json(product)
     } catch (err) {
