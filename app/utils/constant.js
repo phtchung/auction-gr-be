@@ -146,7 +146,6 @@ module.exports.formatDateTime = (inputDateString) => {
 };
 
 module.exports.splitString = (str) => {
-
     var dashIndex = str.indexOf('-');
 
     var firstPart = str.slice(0, dashIndex);

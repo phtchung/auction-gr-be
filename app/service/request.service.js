@@ -2,6 +2,7 @@ const {Storage} = require("@google-cloud/storage");
 const mongoose = require("mongoose");
 const {format} = require("util");
 const Request = require("../models/request.model");
+const Product = require("../models/product.model");
 require('dotenv').config()
 
 
@@ -65,26 +66,34 @@ exports.createRequest = async (req) => {
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
 
-        const request = new Request({
+        const product = new Product({
             description: req.body?.description,
             product_name: req.body?.product_name,
             rank: req.body?.rank,
+            is_used : parseInt(req.body?.is_used),
+            brand:req.body?.brand ? req.body.brand : null,
+            delivery_from:req.body?.delivery_from,
+            can_return:parseInt(req.body?.can_return),
+            image_list: imageUrls,
+            main_image:main_image,
+        })
+        await product.save();
+
+        const request = new Request({
+            product_id : product._id,
+            request_name: req.body?.product_name,
             reserve_price: parseInt(req.body?.reserve_price),
-            sale_price: parseInt(req.body?.sale_price),
+            sale_price: req.body?.sale_price ?  parseInt(req.body?.sale_price) : null,
             shipping_fee: parseInt(req.body?.shipping_fee),
             step_price: parseInt(req.body?.step_price),
             seller_id: seller_id,
             status: 1,
             auction_live:parseInt(req.body?.auction_live),
             type_of_auction: 1,
-            is_used : parseInt(req.body?.is_used),
-            brand:req.body.brand ? req.body.brand : null,
-            delivery_from:req.body?.delivery_from,
-            can_return:parseInt(req.body?.can_return),
-            image_list: imageUrls,
-            main_image:main_image,
+            admin_belong : 0
         })
         await request.save();
+
         return { data: request, error: false, message: "success", statusCode: 200 };
     } catch (err) {
         return {

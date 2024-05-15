@@ -4,6 +4,7 @@ const {format} = require("util");
 const Product = require("../models/product.model");
 const Review = require("../models/review.model");
 const User = require("../models/user.model");
+const Auction = require("../models/auction.model");
 
 exports.UserReviewProduct = async (req, res) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
@@ -43,7 +44,7 @@ exports.UserReviewProduct = async (req, res) => {
             imageUrls = results.map(item => item.url);
         }
 
-        const product = await Product.findOneAndUpdate({
+        const product = await Auction.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(productId),
                 winner_id: new mongoose.Types.ObjectId(userId),
                 status: 8,
@@ -57,7 +58,7 @@ exports.UserReviewProduct = async (req, res) => {
 
         const review = new Review({
             user_id: new mongoose.Types.ObjectId(userId),
-            product_id: new mongoose.Types.ObjectId(productId),
+            auction_id: new mongoose.Types.ObjectId(productId),
             rating: req.body?.rate,
             comment: req.body?.comment,
             rv_image_list: imageUrls ? imageUrls : null,
@@ -68,27 +69,39 @@ exports.UserReviewProduct = async (req, res) => {
             },
             {$inc: {point: 20}})
         const rate = parseFloat(req.body.rate);
+
+
+
         if (rate) {
-            await User.findOneAndUpdate({
-                    _id: product.seller_id,
-                },
-                [
-                    {
-                        $set: {
-                            rate_count: {$add: ["$rate_count", 1]},
-                            average_rating: {
-                                $divide: [
-                                    {
-                                        $add: [
-                                            {$multiply: ["$average_rating", "$rate_count"]}, rate
-                                        ]
-                                    },
-                                    {$add: ["$rate_count", 1]}
-                                ]
+            const seller = await User.findOne({_id : product.seller_id})
+            if(seller.average_rating === 0){
+                seller.average_rating += rate
+                seller.rate_count += 1
+                await seller.save()
+            }else {
+                await User.findOneAndUpdate({
+                        _id: product.seller_id,
+                    },
+                    [
+                        {
+                            $set: {
+                                rate_count: {$add: ["$rate_count", 1]},
+                                average_rating: {
+                                    $divide: [
+                                        {
+                                            $add: [
+                                                {$multiply: ["$average_rating", "$rate_count"]}, rate
+                                            ]
+                                        },
+                                        {$add: ["$rate_count", 1]}
+                                    ]
+                                }
                             }
                         }
-                    }
-                ])
+                    ])
+            }
+
+
         }
         res.status(200).json({message: 'Đánh giá thành công'})
     } catch (err) {

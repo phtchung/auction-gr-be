@@ -10,18 +10,20 @@ const sse = require("../sse");
 const {updateByWinner, UserReturnProduct} = require("../service/product.service");
 const {da} = require("@faker-js/faker");
 const Notification = require('../models/notification.model')
+const Auction = require("../models/auction.model");
 
 
 exports.getAuctionHistory = async (req, res) => {
     try {
         const userId = req.userId
         const status = req.body.status
-        const products = await Product.find({winner_id: new mongoose.Types.ObjectId(userId), status})
+        const products = await Auction.find(
+            {winner_id: new mongoose.Types.ObjectId(userId), status})
             .sort({ updatedAt: -1 })
             .select('product_name rank reserve_price final_price product_delivery main_image is_review review_before')
             .lean()
             .populate('seller_id', 'name')
-
+            .populate('product_id')
 
         res.status(200).json(products)
     } catch (error) {
@@ -33,14 +35,14 @@ exports.getAuctionHistoryDetail = async (req, res) => {
     try {
         const userId = req.userId
         const productId = req.params.productId
-        const product = await Product.findOne({
+        const product = await Auction.findOne({
             winner_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(productId)
         })
-            .select('product_name main_image product_delivery rank shipping_fee reserve_price final_price victory_time')
+            .select('delivery shipping_fee reserve_price final_price victory_time')
             .populate('seller_id','name username')
+            .populate('product_id','product_name main_image rank')
             .lean()
-
 
         res.status(200).json(product)
     } catch (error) {
@@ -53,14 +55,14 @@ exports.getSaleHistory = async (req, res) => {
         const userId = req.userId
         const start_time = req.query.start_time
         const finish_time = req.query.finish_time
-        const products = await Product.find({
+        const products = await Auction.find({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: {$in: [8, 10,14]},
             updatedAt: {
                 $gte: new Date(start_time),
                 $lte: new Date(finish_time)
             }
-        }).select(' _id createdAt product_name request_time final_price product_delivery.completed_time updatedAt shipping_fee request_id status ')
+        }).select(' _id createdAt auction_name request_time final_price delivery.completed_time updatedAt shipping_fee request_id status ')
 
         const total = {
             total_sale: products.length,
@@ -79,25 +81,22 @@ exports.getWinOrderList = async (req, res) => {
     try {
         const userId = req.userId
         const status = userWinOrderList(req.body?.status)
-        let winOrderList
 
-        if (status === 567) {
-            winOrderList = await Product.find({
-                winner_id: new mongoose.Types.ObjectId(userId),
-                status: {$in: [5, 6, 7]}
-            })
+        let query = {
+            winner_id: new mongoose.Types.ObjectId(userId),
+        }
+
+        if (status === 567){
+            query.status =  {$in: [5, 6, 7]}
         }else if(status === 91415){
-            winOrderList = await Product.find({
-                winner_id: new mongoose.Types.ObjectId(userId),
-                status: {$in: [9, 14,15]}
-            })
+            query.status =  {$in: [9, 14,15]}
+        }else {
+            query.status = status
         }
-        else {
-            winOrderList = await Product.find({
-                winner_id: new mongoose.Types.ObjectId(userId),
-                status: status
-            })
-        }
+
+        const winOrderList = await Auction
+            .find(query)
+            .populate('product_id')
 
         res.status(200).json({winOrderList, status})
     } catch (error) {
@@ -109,35 +108,35 @@ exports.getWinCount = async (req, res) => {
     try {
         const userId = req.userId
 
-        const AucW = await Product.find({
+        const AucW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
             status: 4
         })
 
-        const DlvW = await Product.find({
+        const DlvW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
             status: {$in: [5, 6, 7]}
         })
 
-        const CplW = await Product.find({
+        const CplW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
             status: 8
         })
 
-        const CanW = await Product.find({
+        const CanW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
             status: 11
         })
-        const ReW = await Product.find({
+        const ReW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
             status: {$in: [9, 14,15]}
         })
         const countWin = {
-            count_AucW: AucW.length,
-            count_DlvW: DlvW.length,
-            count_Cpl: CplW.length,
-            count_Can: CanW.length,
-            count_Ret: ReW.length
+            count_AucW: AucW,
+            count_DlvW: DlvW,
+            count_Cpl: CplW,
+            count_Can: CanW,
+            count_Ret: ReW
         }
 
         res.status(200).json(countWin)
@@ -151,12 +150,12 @@ exports.getWinOrderDetail = async (req, res) => {
         const userId = req.userId
         const productId = req.params.productId
 
-        const product = await Product.findOne({
+        const product = await Auction.findOne({
             winner_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(productId)
         }).populate('seller_id category_id', 'name phone')
+            .populate('product_id')
         if (!product){
-
             return res.status(404).json('Không tìm thấy sản phẩm')
         }
 
@@ -175,39 +174,39 @@ exports.getReqCount = async (req, res) => {
             status: 1
         })
 
-        const count_appR = await Product.countDocuments({
+        const count_appR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: 2
         })
 
-        const count_bidR = await Product.countDocuments({
+        const count_bidR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: { $in: [3, 4] },
         })
 
-        const count_sucR = await Product.countDocuments({
+        const count_sucR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: 5
         })
 
-        const count_cfR = await Product.countDocuments({
+        const count_cfR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: 6
         })
 
-        const count_dlvR = await Product.countDocuments({
+        const count_dlvR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: 7
         })
-        const count_cplR = await Product.countDocuments({
+        const count_cplR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: 8
         })
-        const count_failR = await Product.countDocuments({
+        const count_failR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: { $in: [10,11]},
         })
-        const count_retR = await Product.countDocuments({
+        const count_retR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
             status: { $in: [9, 14,15] },
         })
@@ -241,25 +240,32 @@ exports.getRequestOrderList = async (req, res) => {
         const status = userRequestStatus(req.body?.status)
 
         let reqOrderList
+
         if(status === 34){
-            reqOrderList = await Product.find({
+            reqOrderList = await Auction.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: { $in: [3, 4] },
             })
+                .populate('product_id')
+
             return res.status(200).json({reqOrderList, status})
         }
         if(status === 91415){
-            reqOrderList = await Product.find({
+            reqOrderList = await Auction.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: { $in: [9,14,15] },
             })
+                .populate('product_id')
+
             return res.status(200).json({reqOrderList, status})
         }
         if(status === 1011){
-            reqOrderList = await Product.find({
+            reqOrderList = await Auction.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: { $in: [10,11] },
             })
+                .populate('product_id')
+
             return res.status(200).json({reqOrderList, status})
         }
         if (status === 1 || status === 13) {
@@ -267,11 +273,15 @@ exports.getRequestOrderList = async (req, res) => {
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: status
             })
+                .populate('product_id')
+
         } else {
-            reqOrderList = await Product.find({
+            reqOrderList = await Auction.find({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 status: status
             })
+                .populate('product_id')
+
         }
 
         res.status(200).json({reqOrderList, status})
@@ -286,16 +296,18 @@ exports.getReqOrderDetail = async (req, res) => {
         const Id = req.params.productId
         let product
 
-        product = await Product.findOne({
+        product = await Auction.findOne({
             seller_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(Id)
-        }).populate('seller_id category_id request_id', 'name phone createdAt')
+        }).populate('seller_id winner_id category_id request_id', 'name phone createdAt')
+            .populate('product_id')
 
         if (!product) {
             product = await Request.findOne({
                 seller_id: new mongoose.Types.ObjectId(userId),
                 _id: new mongoose.Types.ObjectId(Id)
             }).populate('seller_id category_id', 'name phone')
+                .populate('product_id')
         }
 
         res.status(200).json(product)
@@ -360,12 +372,14 @@ exports.getAuctionProductDetail = async (req, res) => {
     try {
         const Id = req.params.productId
 
-        const  auctionProduct = await Product.findOne({
+        const  auctionProduct = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(Id),
             status: 3,
+            auction_live:0,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date(), $exists: true},
         }).populate('seller_id category_id request_id', 'name average_rating parent username product_done_count rate_count point createdAt')
+            .populate('product_id')
 
         if (!auctionProduct) {
             return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
@@ -390,12 +404,14 @@ exports.getProductStreamDetail = async (req, res) => {
     try {
         const Id = req.params.productId
 
-        const  product = await Product.findOne({
+        const  product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(Id),
             auction_live: 2,
-            register_time: {$gt: new Date(), $exists: true},
+            register_finish: {$gt: new Date(), $exists: true},
+            register_start: {$lt: new Date(), $exists: true},
         })
             .populate('seller_id category_id', 'name average_rating parent username product_done_count rate_count createdAt')
+            .populate('product_id')
 
         if (!product) {
             return res.status(404).json({message: 'Không tìm thấy sản phẩm'})
@@ -420,7 +436,7 @@ exports.getProductRealTimeDetail = async (req, res) => {
     try {
         const Id = req.params.productId
 
-        const  product = await Product.findOne({
+        const  product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(Id),
             auction_live: 1,
             start_time: {$lt: new Date()},
@@ -428,6 +444,7 @@ exports.getProductRealTimeDetail = async (req, res) => {
             status : 3
         })
             .populate('seller_id category_id', 'name average_rating parent username product_done_count rate_count createdAt')
+            .populate('product_id')
 
         if (!product) {
             return res.status(404).json({message: 'Không tìm thấy sản phẩm'})

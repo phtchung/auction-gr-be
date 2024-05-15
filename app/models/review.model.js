@@ -8,9 +8,9 @@ const Review = mongoose.model(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
       },
-      product_id: {
+      auction_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Product'
+        ref: 'Auction'
       },
       rating: Number,
       comment: String,

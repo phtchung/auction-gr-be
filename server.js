@@ -29,13 +29,14 @@ require('./app/routes/admin.routes')(app)
 require('./app/routes/user.routes')(app)
 require('./app/routes/product.routes')(app)
 require('./app/routes/request.routes')(app)
-require('./app/routes/delivery.routes')(app)
 require('./app/routes/auction.routes')(app)
 require('./app/routes/blog.routes')(app)
 require('./app/routes/review.routes')(app)
 require('./app/routes/sse.routes')(app)
 require('./app/routes/notification.routes')(app)
 require('./app/routes/message.routes')(app)
+require('./app/routes/bid.routes')(app)
+
 
 // app.use('/', sseRoute);
 

@@ -1,6 +1,7 @@
 const Request = require("../models/request.model");
 const {mongoose} = require("mongoose");
 const Product = require("../models/product.model");
+const Auction = require("../models/auction.model");
 
 
 exports.adminApproveAuction = async (req, res) => {
@@ -23,31 +24,38 @@ exports.adminApproveAuction = async (req, res) => {
         if (!request) {
             return res.status(500).json({message: 'Không tìm thấy yêu cầu đấu giá!'})
         } else {
-            const product = new Product({
+            await Product.findOneAndUpdate({
+                _id : request.product_id
+            },
+                {
+                    category_id : new mongoose.Types.ObjectId(req.body?.category),
+                })
+
+            const auction = new Auction({
                 request_id: request?._id,
-                description: request?.description,
-                product_name: request?.product_name,
+                auction_name: request?.request_name,
                 category_id: new mongoose.Types.ObjectId(req.body?.category),
                 status: 2,
-                rank: request?.rank,
                 reserve_price: parseInt(request?.reserve_price),
                 sale_price: parseInt(request?.sale_price),
                 shipping_fee: parseInt(request?.shipping_fee),
                 step_price: parseInt(request?.step_price),
                 seller_id: request?.seller_id,
                 type_of_auction: req.body?.type_of_auction,
-                is_used : request?.is_used,
-                brand:request.brand ? request.brand : null,
-                delivery_from:request?.delivery_from,
-                can_return:request?.can_return,
-                image_list: request?.image_list,
                 start_time: req.body?.start_time,
                 finish_time: req.body?.finish_time,
                 main_image: request?.main_image,
                 request_time: request?.createdAt,
+                auction_live : request?.auction_live,
+                product_id : request?.product_id,
+                admin_belong : 0,
+                view :0,
+                approved_at : new Date(),
+                bids:[]
             })
-            await product.save();
-            return { data: product, error: false, message: "Tạo phiên đấu giá thành công", statusCode: 200 };
+
+            await auction.save();
+            return { data: auction, error: false, message: "Tạo phiên đấu giá thành công", statusCode: 200 };
         }
 
     } catch (err) {
@@ -95,20 +103,20 @@ exports.adminRejectRequest = async (req) => {
 
 exports.acceptReturnProduct = async (req) => {
     try {
-        const productId = req.body?.product_id
-        const product = await Product.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(productId),
+        const auctionId = req.body?.product_id
+        const auction = await Auction.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(auctionId),
                 status: 9
             },
             {
                 $set: {
                     status: 14,
-                    'product_delivery.status': 14,
-                    'product_delivery.approve_return_time': new Date()
+                    'delivery.status': 14,
+                    'delivery.approve_return_time': new Date()
                 }
             })
 
-        if (!product || product.status !== 9) {
+        if (!auction || auction.status !== 9) {
             return {
                 data: [],
                 error: true,
@@ -116,7 +124,7 @@ exports.acceptReturnProduct = async (req) => {
                 statusCode: 404,
             };
         }
-        return { data: product, error: false, message: "Phê duyệt yêu cầu trả hàng thành công", statusCode: 200 };
+        return { data: auction, error: false, message: "Phê duyệt yêu cầu trả hàng thành công", statusCode: 200 };
     } catch (error) {
         return {
             data: [],
@@ -129,20 +137,20 @@ exports.acceptReturnProduct = async (req) => {
 
 exports.denyReturnProduct = async (req) => {
     try {
-        const productId = req.body?.product_id
-        const product = await Product.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(productId),
+        const auctionId = req.body?.product_id
+        const auction = await Auction.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(auctionId),
                 status: 9
             },
             {
                 $set: {
                     status: 15,
-                    'product_delivery.status': 15,
-                    'product_delivery.deny_return_time': new Date()
+                    'delivery.status': 15,
+                    'delivery.deny_return_time': new Date()
                 }
             })
 
-        if (!product || product.status !== 9) {
+        if (!auction || auction.status !== 9) {
             return {
                 data: [],
                 error: true,
@@ -150,7 +158,7 @@ exports.denyReturnProduct = async (req) => {
                 statusCode: 404,
             };
         }
-        return { data: product, error: false, message: "Từ chối yêu cầu trả hàng thành công", statusCode: 200 };
+        return { data: auction, error: false, message: "Từ chối yêu cầu trả hàng thành công", statusCode: 200 };
 
     } catch (error) {
         return {
@@ -165,12 +173,12 @@ exports.denyReturnProduct = async (req) => {
 exports.updateStatusByAdmin = async (req) => {
     try {
         const newStatus = parseInt(req.body.newState)
-        const productId = req.body?.product_id
+        const auction_id = req.body?.product_id
         const status = req.body?.state
         const now = new Date()
-        var product
-        const check = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(productId),
+        var auction
+        const check = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(auction_id),
         })
         if (!check || check.status !== status) {
             return {
@@ -180,35 +188,53 @@ exports.updateStatusByAdmin = async (req) => {
                 statusCode: 404,
             };
         }
-
-        if (status === 5) {
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    admin_belong: 1
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.confirm_time': now
-                    }
-                })
-            return { data: product, error: false, message: "success", statusCode: 200, status : 6 };
-
-        } else if (status === 6) {
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    admin_belong: 1
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.delivery_start_time': now
-                    }
-                })
-            return { data: product, error: false, message: "success", statusCode: 200, status : 7 };
+        let set = {
+            status: newStatus,
+            'delivery.status': newStatus,
         }
+        if (status === 5) {
+            set['delivery.confirm_time'] = now;
+        }else if(status === 6){
+            set['delivery.delivery_start_time'] = now;
+        }
+
+        auction = await Auction.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(auction_id),
+                admin_belong: 1
+            },
+            {
+                $set: set
+            })
+        return { data: auction, error: false, message: "success", statusCode: 200, status : newStatus };
+
+        // if (status === 5) {
+        //     product = await Product.findOneAndUpdate({
+        //             _id: new mongoose.Types.ObjectId(productId),
+        //             admin_belong: 1
+        //         },
+        //         {
+        //             $set: {
+        //                 status: newStatus,
+        //                 'product_delivery.status': newStatus,
+        //                 'product_delivery.confirm_time': now
+        //             }
+        //         })
+        //     return { data: product, error: false, message: "success", statusCode: 200, status : 6 };
+        //
+        // } else if (status === 6) {
+        //     product = await Product.findOneAndUpdate({
+        //             _id: new mongoose.Types.ObjectId(productId),
+        //             admin_belong: 1
+        //         },
+        //         {
+        //             $set: {
+        //                 status: newStatus,
+        //                 'product_delivery.status': newStatus,
+        //                 'product_delivery.delivery_start_time': now
+        //             }
+        //         })
+        //     return { data: product, error: false, message: "success", statusCode: 200, status : 7 };
+        // }
     } catch (error) {
         return {
             data: [],

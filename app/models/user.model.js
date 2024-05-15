@@ -46,7 +46,10 @@ const User = mongoose.model(
                 default : 100
             },
             phone: String,
-            average_rating: Number,
+            average_rating: {
+                type : Number,
+                default:0
+            },
             date_of_birth: Date,
             active: {
                 type : Boolean,
@@ -54,10 +57,15 @@ const User = mongoose.model(
             },
             address: String,
             avatar:String,
-            product_done_count: Number,
+            product_done_count: {
+                type : Number,
+                default:0
+            },
             // số lượng người đánh giá
-            rate_count:Number,
-            activity_intensity: Number,
+            rate_count:{
+                type : Number,
+                default : 0
+            },
             last_seen: Date,
             roles: [
                 {
