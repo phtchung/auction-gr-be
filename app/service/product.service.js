@@ -4,6 +4,7 @@ const User = require("../models/user.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
 const {calculatePoints} = require("../utils/constant");
+const Auction = require("../models/auction.model");
 require('dotenv').config()
 
 exports.updateByWinner = async (req, res) => {
@@ -14,7 +15,7 @@ exports.updateByWinner = async (req, res) => {
         const status = req.body?.state
         var product
 
-        const check = await Product.findOne({
+        const check = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(productId),
         })
         if (!check || check.status !== status) {
@@ -28,20 +29,35 @@ exports.updateByWinner = async (req, res) => {
         const now = new Date()
         const tenDaysLater = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
         let point = calculatePoints(check.final_price)
+        let set = {
+            status: newStatus,
+            'delivery.status': newStatus,
+        }
+        let query = {
+            _id: new mongoose.Types.ObjectId(productId),
+        }
         if(status === 7 && newStatus === 8 ){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    winner_id: new mongoose.Types.ObjectId(userId),
-                },
+            query.winner_id =  new mongoose.Types.ObjectId(userId)
+            set.is_review  = 0
+            set.review_before =  { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] }
+            set['delivery.completed_time'] =  now
+        }else if (status === 7 && newStatus === 9){
+            query.winner_id =  new mongoose.Types.ObjectId(userId)
+            set['delivery.return_time'] =  now
+        }if(status === 5){
+            query.seller_id = new mongoose.Types.ObjectId(userId)
+            set['delivery.confirm_time'] =  now
+        }else if(status === 6){
+            query.seller_id = new mongoose.Types.ObjectId(userId)
+            set['delivery.delivery_start_time'] =  now
+            set['delivery.return_before'] =  tenDaysLater
+        }
+
+        if(status === 7 && newStatus === 8 ){
+            product = await Auction.findOneAndUpdate(query,
                 [
                     {
-                        $set: {
-                            status: newStatus,
-                            'product_delivery.status': newStatus,
-                            'product_delivery.completed_time': now,
-                            is_review : 0,
-                            review_before: { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] },
-                        }
+                        $set: set
                     }
                 ]
             )
@@ -53,62 +69,15 @@ exports.updateByWinner = async (req, res) => {
                 { _id: new mongoose.Types.ObjectId(check.seller_id) },
                 { $inc: {   product_done_count: 1 } }
             );
-            // await User.findOneAndUpdate({
-            //         _id: new mongoose.Types.ObjectId(userId),
-            //     },
-            //     [
-            //         {
-            //             $set: {
-            //                 product_done_count : { $add: ["$product_done_count", 1] },
-            //                 point: { $add: ["$point", point] },
-            //             }
-            //         }
-            //     ])
-            return { data: product, error: false, message: "success", statusCode: 200, status : 8 };
-        }else if(status === 7 && newStatus === 9){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    winner_id: new mongoose.Types.ObjectId(userId),
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.return_time': now
-                    }
-                })
-            return { data: product, error: false, message: "success", statusCode: 200, status : 9 };
 
-        }
-        else if(status === 5){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    seller_id: new mongoose.Types.ObjectId(userId),
-                },
+        }else {
+            product = await Auction.findOneAndUpdate(query,
                 {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.confirm_time': now
-                    }
+                    $set: set
                 })
-            return { data: product, error: false, message: "success", statusCode: 200, status : 6 };
+        }
 
-        } else if(status === 6){
-            product = await Product.findOneAndUpdate({
-                    _id: new mongoose.Types.ObjectId(productId),
-                    seller_id: new mongoose.Types.ObjectId(userId),
-                },
-                {
-                    $set: {
-                        status: newStatus,
-                        'product_delivery.status': newStatus,
-                        'product_delivery.delivery_start_time': now,
-                        'product_delivery.return_before': tenDaysLater
-                    }
-                })
-            return { data: product, error: false, message: "success", statusCode: 200, status : newStatus };
-        }
+        return { data: product, error: false, message: "success", statusCode: 200, status : newStatus };
     } catch (error) {
         return {
             data: [],
@@ -118,7 +87,6 @@ exports.updateByWinner = async (req, res) => {
         };
     }
 }
-
 
 exports.UserReturnProduct = async (req) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
@@ -162,7 +130,7 @@ exports.UserReturnProduct = async (req) => {
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
 
-        const returnProduct = await Product.findOneAndUpdate({
+        const returnProduct = await Auction.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(productId),
                 winner_id: new mongoose.Types.ObjectId(userId),
                 status : 7
@@ -170,10 +138,10 @@ exports.UserReturnProduct = async (req) => {
             {
                 $set: {
                     status: 9,
-                    'product_delivery.status': 9,
-                    'product_delivery.return_time': new Date(),
-                    'product_delivery.return_image_list': imageUrls,
-                    'product_delivery.return_reason':req.body?.return_reason,
+                    'delivery.status': 9,
+                    'delivery.return_time': new Date(),
+                    'delivery.return_image_list': imageUrls,
+                    'delivery.return_reason':req.body?.return_reason,
                 }
             })
         await returnProduct.save();

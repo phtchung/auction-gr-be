@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
 const Product = require("../models/product.model");
 const Auction = require("../models/auction.model");
-const Delivery = require("../models/delivery.model");
 const crypto = require("crypto");
 const https = require("https");
 require('dotenv').config()
@@ -9,18 +8,18 @@ const moment = require("moment/moment");
 const {v1: uuid} = require("uuid");
 const CryptoJS = require("crypto-js");
 const axios = require("axios");
+const Bid = require("../models/bid.model");
 require('dotenv').config()
 
 
 exports.BuyProduct = async (req, res) => {
-
     try {
         const userId = req.userId
         const username = req.username
         const productId = req.body.productId
         const winner_id = new mongoose.Types.ObjectId(userId)
 
-        const product = await Product.findOne({
+        const product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(productId),
             status: 3,
             start_time: {$lt: new Date()},
@@ -35,17 +34,18 @@ exports.BuyProduct = async (req, res) => {
             product.status = 4
             product.victory_time = new Date()
             product.final_price =  req.body.final_price
-            product.isDeliInfor = 0
             product.winner_id = winner_id
             const temp = new Date()
             temp.setDate(temp.getDate() + 2);
             temp.setHours(23, 59, 59, 0);
-            product.procedure_complete_time = temp
+            product.delivery = {
+                status : 4,
+                procedure_complete_time : temp
+            }
             await product.save()
 
-            const bid = new Auction({
-                product_id: new mongoose.Types.ObjectId(productId),
-                user: new mongoose.Types.ObjectId(userId),
+            const bid = new Bid({
+                auction_id: new mongoose.Types.ObjectId(productId),
                 username: username,
                 bid_price: parseInt(req.body?.final_price),
                 bid_time: new Date(),
@@ -166,30 +166,25 @@ exports.finishAuctionProduct = async (req, res) => {
 exports.checkoutProduct = async (req, res) => {
     try {
         const userId = req.userId
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(req.body.product_id)
-        })
+        let product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(req.body.product_id),
+            winner_id: new mongoose.Types.ObjectId(userId)
+        }).populate('product_id')
+
         if (product.status === 4) {
             // = 0 tiền mặt , bằng 1 : momo , bằng 2 : zlpay
             if(req.body?.payment_method === 0){
-                const delivery = new Delivery({
+                product.delivery = {
+                    ...product.delivery,
                     name: req.body.name,
                     payment_method: "Tiền mặt",
                     address: req.body.address,
                     phone: req.body.phone,
                     status: 5,
-                    _id: new mongoose.Types.ObjectId(req.body.product_id)
-                })
-                const newDlv = await delivery.save()
-                delete newDlv._id
-                const product = await Product.findOneAndUpdate(
-                    {
-                        _id: new mongoose.Types.ObjectId(req.body.product_id),
-                        winner_id: new mongoose.Types.ObjectId(userId)
-                    },
-                    {product_delivery: newDlv, status: 5, isDeliInfor:1},
-                    {new: true}
-                )
+                }
+                product.status = 5
+                await product.save()
+
                 return { data: product, error: false, message: "Thành công", statusCode: 200, payUrl : process.env.redirectUrl };
             }else if(req.body?.payment_method === 1){
                 var partnerCode = "MOMO"
@@ -202,7 +197,7 @@ exports.checkoutProduct = async (req, res) => {
                 // mã đặt đơn
                 var orderId = new Date().getTime() + ":0123456778";
                 //
-                var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
+                var orderInfo = "Thanh toán sản phẩm "+ product?.product_id?.product_name;
                 // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
                 var redirectUrl = process.env.redirectUrl;
                 // Trang thank you
@@ -269,26 +264,16 @@ exports.checkoutProduct = async (req, res) => {
                     });
                     resMom.on("end",  async () => {
                         if(rsCode === 0){
-                            const delivery = new Delivery({
+                            product.delivery = {
+                                ...product.delivery,
                                 name: req.body.name,
                                 payment_method: "Momo",
                                 address: req.body.address,
                                 phone: req.body.phone,
                                 status: 5,
-                                _id: new mongoose.Types.ObjectId(req.body.product_id)
-                            })
-                            const newDlv = await delivery.save()
-
-                            delete newDlv._id
-                            const product = await Product.findOneAndUpdate(
-                                {
-                                    _id: new mongoose.Types.ObjectId(req.body.product_id),
-                                    winner_id: new mongoose.Types.ObjectId(userId)
-                                },
-                                {product_delivery: newDlv, status: 5, isDeliInfor:1},
-                                {new: true}
-                            )
-
+                            }
+                            product.status = 5
+                            await product.save()
                         }
                         return { data: product, error: false, message: "Thành công", statusCode: 200,payUrl: url };
 
@@ -329,7 +314,7 @@ exports.checkoutProduct = async (req, res) => {
                     item: "[]",
                     embeddata: JSON.stringify(embeddata),
                     amount: product.final_price + product.shipping_fee,
-                    description: `Auction - Thanh toán cho sản phẩm ${product.product_name}`,
+                    description: `Auction - Thanh toán cho sản phẩm ${product?.product_id?.product_name}`,
                     bankcode:"zalopayapp",
                 };
 
@@ -347,30 +332,16 @@ exports.checkoutProduct = async (req, res) => {
                     .catch(err => console.log(err));
 
                 if(returncode === 1){
-                    const delivery = new Delivery({
+                    product.delivery = {
+                        ...product.delivery,
                         name: req.body.name,
                         payment_method: "Zalopay",
                         address: req.body.address,
                         phone: req.body.phone,
                         status: 5,
-                        _id: new mongoose.Types.ObjectId(req.body.product_id)
-                    })
-
-                    const newDlv = await delivery.save()
-                    delete newDlv._id
-
-                    const product1 = await Product.findOneAndUpdate(
-                        {
-                            _id: new mongoose.Types.ObjectId(req.body.product_id),
-                            winner_id: new mongoose.Types.ObjectId(userId)
-                        },{
-                            $set: {
-                                product_delivery: newDlv,
-                                status: 5,
-                                isDeliInfor:1
-                            },
-                        },{new: true}
-                    )
+                    }
+                    product.status = 5
+                    await product.save()
                 }
                 return { data: product, error: false, message: "Thành công", statusCode: 200,payUrl: returnUrl };
             }

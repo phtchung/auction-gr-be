@@ -1,6 +1,5 @@
 const Request = require('../models/request.model')
 const Product = require('../models/product.model')
-const Delivery = require('../models/delivery.model')
 const Notification = require('../models/notification.model')
 const {Storage} = require('@google-cloud/storage')
 const mongoose = require('mongoose')
@@ -20,7 +19,8 @@ exports.getRequest = async (req, res) => {
                 $gte: new Date(start_time),
                 $lte: new Date(finish_time)
             }
-        }).select(' _id createdAt product_name status rank')
+        }).select(' _id createdAt status ')
+            .populate('product_id','product_name rank')
 
         const total = {
             total_request: requests.length,
@@ -79,7 +79,8 @@ exports.getRequestHistoryDetail = async (req, res) => {
         const request = await Request.findOne({
             seller_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(requestId)
-        })
+        }).populate('product_id')
+            .populate('category_id','name')
 
         res.status(200).json(request)
     } catch (err) {

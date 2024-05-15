@@ -9,9 +9,9 @@ const Registration = mongoose.model(
                 ref: "User",
                 required: true,
             },
-            product_id: {
+            auction_id: {
                 type: mongoose.Schema.Types.ObjectId,
-                ref: "Product",
+                ref: "Auction",
                 required: true,
             },
             code: {

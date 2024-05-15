@@ -18,22 +18,24 @@ const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 const sendEmail = require("../utils/helper");
 const Registration = require("../models/registration.model");
+const Bid = require("../models/bid.model");
+const Message = require("../models/message.model");
 
 
 exports.getBiddingList = async (req, res) => {
     try {
         const userId = req.userId
-
+        const username = req.username
         const page = parseInt(req.query.page)
         const LIMIT = 5;
 
-        const product_biddings = await Auction.aggregate([
+        const product_biddings = await Bid.aggregate([
             {
-                $match: {user: new mongoose.Types.ObjectId(userId)}
+                $match: {username: username}
             },
             {
                 $group: {
-                    _id: '$product_id',
+                    _id: '$auction_id',
                 }
             },
             {
@@ -43,35 +45,37 @@ exports.getBiddingList = async (req, res) => {
 
         const productIds = product_biddings.length > 0 ? product_biddings.map((item) => item._id) : []
 
-        const biddingInfor = await Auction.aggregate([
+        const biddingInfor = await Bid.aggregate([
             {
-                $match: {product_id: {$in: productIds}}
+                $match: {auction_id: {$in: productIds}}
             },
             {
                 $sort: {bid_price: -1}
             },
             {
                 $group: {
-                    _id: '$product_id',
+                    _id: '$auction_id',
                     document: {$first: '$$ROOT'}
                 }
             },
             {$replaceRoot: {newRoot: '$document'}}
         ])
 
-        const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.product_id) : []
+        const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.auction_id) : []
+
         const query = {}
         query.status = 3
         query._id = {$in: products}
         const { keyword } = req.query
         if(keyword){
-            query.product_name = { $regex: keyword, $options: 'i' }
+            query.auction_name = { $regex: keyword, $options: 'i' }
         }
 
-        const data = await Product.find(
+        const data = await Auction.find(
             query
         )
-            .select('product_name _id rank start_time reserve_price seller_id finish_time main_image')
+            .select('_id  start_time reserve_price seller_id finish_time ')
+            .populate('product_id','product_name rank main_image')
             .populate('seller_id', 'name average_rating')
             .lean()
 
@@ -80,7 +84,7 @@ exports.getBiddingList = async (req, res) => {
         }
 
         const mergedArray = data.map((product) => {
-            const correspondingBid = biddingInfor.find((bid) => bid.product_id.equals(product._id))
+            const correspondingBid = biddingInfor.find((bid) => bid.auction_id.equals(product._id))
 
             return {
                 ...product,
@@ -100,15 +104,14 @@ exports.getBiddingList = async (req, res) => {
     }
 }
 
-
-
-
 exports.getFullBidOfProduct = async (req, res) => {
     try {
         const productId = req.params.product_id
-        const fullBidList = await Auction.aggregate([
+
+        // phải lấy type của auction
+        const fullBidList = await Bid.aggregate([
             {
-                $match: {product_id: new mongoose.Types.ObjectId(productId)}
+                $match: {auction_id: new mongoose.Types.ObjectId(productId)}
             },
             {
                 $sort: {createdAt: -1}
@@ -121,19 +124,14 @@ exports.getFullBidOfProduct = async (req, res) => {
     }
 }
 
-
 exports.createProductBid = async (req, res) => {
-
     try {
         const userId = req.userId
         const username = req.username
         const productId = req.body.productId
         const winner_id = new mongoose.Types.ObjectId(userId)
 
-        if (userId === winner_id) {
-            return res.status(404).json({message: 'Không được đấu giả sản phẩm của mình'})
-        }
-        const product = await Product.findOneAndUpdate({
+        const product = await Auction.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(productId),
                 status: 3,
                 start_time: {$lt: new Date()},
@@ -153,14 +151,17 @@ exports.createProductBid = async (req, res) => {
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá'})
         } else {
-            const bid = new Auction({
-                product_id: new mongoose.Types.ObjectId(productId),
-                user: new mongoose.Types.ObjectId(userId),
+            const bid = new Bid({
+                auction_id: new mongoose.Types.ObjectId(productId),
                 username: username,
                 bid_price: parseInt(req.body?.final_price),
                 bid_time: new Date(),
             })
-            await bid.save();
+
+            if (bid) {
+                product.bids.push(bid._id)
+            }
+            await Promise.all([product.save(), bid.save()]);
         }
 
         res.status(200).json({message: 'Thực hiện trả giá thành công'})
@@ -173,8 +174,8 @@ exports.getAuctionProductBidCount = async (req, res) => {
     try {
         const Id = req.params.productId
 
-        const bidCount = await Auction.countDocuments({
-            product_id: new mongoose.Types.ObjectId(Id),
+        const bidCount = await Bid.countDocuments({
+            auction_id: new mongoose.Types.ObjectId(Id),
         })
 
         res.status(200).json({bidCount: bidCount})
@@ -208,9 +209,10 @@ exports.getProductOfSeller = async (req, res) => {
         if (!user) {
             return res.status(404).json({message: 'Không tìm thấy người bán nào'})
         }
-        var total_product = await Product.countDocuments({
+        var total_product = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(user._id),
             status: 3,
+            auction_live : 0,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
         })
@@ -231,7 +233,9 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
             return res.status(404).json({message: 'Không tìm thấy người bán nào'})
         }
 
-        let query = {};
+        let query = {
+            auction_live : 0
+        };
         let sort = {}
         //cate con
         // if (req.query.subcate) {
@@ -274,22 +278,27 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
 
         // trạng thái đã sd hay chưa
         if (req.query.state) {
-            if (Array.isArray(req.query.state)) {
-                query.is_used = {$in : req.query.state.map((item) => parseInt(item, 10))}  ;
-            } else {
-                query.is_used = parseInt(req.query.state);
+            if (!Array.isArray(req.query.state)) {
+                const products = await Product.find({ is_used: parseInt(req.query.state) }, '_id');
+                const productIds = products.map(product => product._id);
+                if(productIds.length > 0 ){
+                    query.product_id = { $in: productIds };
+                }
             }
         }
 
+
         if (req.query.sortBy) {
             const parts = splitString(req.query.sortBy)
-            if(parts[0] !== 'bid_count'){
+                if(parts[0] !== 'bid_count'){
                 sort[parts[0]] = parts[1]
-            }
+            }else {
+                    sort['bids'] = parts[1]
+                }
         }
         const { keyword } = req.query
         if(keyword){
-            query.product_name = { $regex: keyword, $options: 'i' }
+            query.auction_name = { $regex: keyword, $options: 'i' }
         }
 
         const page = parseInt(req.query.page) - 1 || 0
@@ -313,35 +322,39 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
             };
         }
 
-        const products = await Product.find(query)
+        const products = await Auction.find(query)
             .sort(sort)
             .skip(page*limit)
             .limit(limit)
+            .populate('product_id','product_name main_image')
 
-        const total = await Product.countDocuments(query)
+        const total = await Auction.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
 
         if (products.length !== 0) {
             for (let i = 0; i < products.length; i++) {
-                const count = await Auction.aggregate([
-                    {$match: {product_id: products[i]._id}},
-                    {$group: {_id: "$product_id", count: {$sum: 1}}}
-                ]);
-                if (count.length > 0) {
-                    products[i] = {...products[i]._doc, ...count[0]}
+                // const count = await Bid.aggregate([
+                //     {$match: {auction_id: products[i]._id}},
+                //     {$group: {_id: "$auction_id", count: {$sum: 1}}}
+                // ])
+                const count = products[i].bids.length
+                if (count > 0) {
+                    products[i] = {...products[i]._doc, count : count}
                 } else {
                     products[i] = {...products[i]._doc, count: 0}
                 }
             }
         }
 
-        if(req.query.sortBy){
-            if(req.query.sortBy ===  'bid_count-asc'){
-                products.sort((a, b) => a.count - b.count);
-            }else
-                products.sort((a, b) => b.count - a.count);
-        }
+        //cái sort giá này bị lỗi
+        // if(req.query.sortBy){
+        //     if(req.query.sortBy ===  'bid_count-asc'){
+        //         products.sort((a, b) => a.count - b.count);
+        //     }else
+        //         products.sort((a, b) => b.count - a.count);
+        // }
+
         const response = {
             error:false,
             total,
@@ -395,13 +408,12 @@ exports.checkoutProductController = async (req, res) => {
         const temp = new Date()
         temp.setDate(temp.getDate() + 3);
         temp.setHours(23, 59, 0, 0);
-        await Product.findOneAndUpdate(
+        await Auction.findOneAndUpdate(
             {
                 _id: result.data._id,
                 status: 5,
-                isDeliInfor: 1
             },
-            { $set: { delivery_before: temp } },
+            { $set: { 'delivery.delivery_before': temp } },
         );
         const data = new Notification ({
             title : 'Đấu giá thành công',
@@ -645,17 +657,16 @@ exports.getTopSeller = async (req, res) => {
 
 exports.getProduct1k = async (req, res) => {
     try {
-        const products = await Product.aggregate([
-            { $match:
-                    { reserve_price: { $lt: 1000 },
-                        status : 3,
-                        finish_time: {$gt: new Date(), $exists: true},
-                    }
-            },
-            { $limit: 10 },
-            { $sort: { 'reserve_price': 1 }},
-            { $project: { _id: 1, product_name : 1,reserve_price: 1,main_image: 1 } }
-        ])
+        const products = await Auction.find({
+            reserve_price: { $lt: 1000 },
+            status: 3,
+            auction_live: 0,
+            finish_time: { $gt: new Date(), $exists: true }
+        })
+            .limit(10)
+            .sort({ reserve_price: 1 })
+            .populate('product_id', 'product_name  main_image')
+            .select('_id reserve_price');
 
         res.status(200).json(products)
     } catch (err) {
@@ -665,17 +676,15 @@ exports.getProduct1k = async (req, res) => {
 
 exports.getRareProduct = async (req, res) => {
     try {
-        const products = await Product.aggregate([
-            { $match:
-                    {
-                        status : 3,
-                        finish_time: {$gt: new Date(), $exists: true},
-                    }
-            },
-            { $sort: { 'reserve_price': -1 }},
-            { $limit: 10 },
-            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1 }}
-        ])
+        const products = await Auction.find({
+            status: 3,
+            auction_live: 0,
+            finish_time: { $gt: new Date(), $exists: true }
+        })
+            .limit(10)
+            .sort({ reserve_price: -1 })
+            .populate('product_id', 'product_name  main_image')
+            .select('_id reserve_price final_price');
 
         res.status(200).json(products)
     } catch (err) {
@@ -685,18 +694,15 @@ exports.getRareProduct = async (req, res) => {
 
 exports.getStandoutProduct = async (req, res) => {
     try {
-        const products = await Product.aggregate([
-            { $match:
-                    {
-                        status : 3,
-                        finish_time: {$gt: new Date(), $exists: true},
-                        auction_live : {$ne : 1}
-                    }
-            },
-            { $sort: { 'view': -1 }},
-            { $limit: 10 },
-            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1 }}
-        ])
+        const products = await Auction.find({
+            status: 3,
+            finish_time: { $gt: new Date(), $exists: true },
+            auction_live : { $nin: [1, 2] }
+        })
+            .limit(10)
+            .sort({ view: -1 })
+            .populate('product_id', 'product_name  main_image')
+            .select('_id reserve_price final_price');
 
         res.status(200).json(products)
     } catch (err) {
@@ -725,13 +731,14 @@ exports.getRealtimeProduct = async (req, res) => {
         const page = parseInt(req.body.query.page) - 1 || 0
 
         const limit = 15
-        const products = await Product
+        const products = await Auction
             .find(query)
             .skip(page*limit)
             .limit(limit)
-            .select('_id product_name main_image finish_time')
+            .select('_id finish_time')
+            .populate('product_id','product_name main_image')
 
-        const total = await Product.countDocuments(query)
+        const total = await Auction.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
 
@@ -757,7 +764,8 @@ exports.getStreamProduct = async (req, res) => {
         let query = {
             auction_live: 2,
             type_of_auction : {$in : type},
-            register_time: {$gt: new Date(), $exists: true},
+            register_finish: {$gt: new Date(), $exists: true},
+            register_start: {$lt: new Date(), $exists: true},
         }
         let cateIds
         if (category && category !== '0'){
@@ -770,22 +778,23 @@ exports.getStreamProduct = async (req, res) => {
         const page = parseInt(req.body.query.page) - 1 || 0
 
         const limit = 15
-        const products = await Product
+        const products = await Auction
             .find(query)
             .skip(page*limit)
             .limit(limit)
-            .select('_id product_name main_image register_time')
+            .select('_id register_finish')
+            .populate('product_id','product_name main_image')
 
         // mảng id các sp
         const productIds = products.map(product => product._id);
 
         const registerProducts = await Registration.find({
             user_id: new mongoose.Types.ObjectId(userId),
-            product_id: {$in : productIds}
+            auction_id: {$in : productIds}
         })
 
         const result = products.map(product => {
-            const registerItem = registerProducts.find((item) => item.product_id.toString() === product._id.toString());
+            const registerItem = registerProducts.find((item) => item.auction_id.toString() === product._id.toString());
 
             return {
                 ...product.toObject(),
@@ -793,7 +802,7 @@ exports.getStreamProduct = async (req, res) => {
             };
         });
 
-        const total = await Product.countDocuments(query)
+        const total = await Auction.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
 
@@ -813,16 +822,16 @@ exports.getStreamProduct = async (req, res) => {
 
 exports.getProductPrepareEnd = async (req, res) => {
     try {
-        const products = await Product.aggregate([
-            { $match:
-                    {
-                        status : 3,
-                        finish_time: { $lt : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
-                    }
-            },
-            { $limit: 10 },
-            { $project: { _id: 1, product_name : 1,reserve_price: 1,final_price:1,main_image: 1,finish_time:1 } }
-        ])
+
+        const products = await Auction.find({
+            status: 3,
+            auction_live: 0,
+            finish_time: { $lt : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
+        })
+            .limit(10)
+            .sort({ finish_time: 1 })
+            .populate('product_id', 'product_name  main_image')
+            .select('_id reserve_price final_price finish_time');
 
         res.status(200).json(products)
     } catch (err) {
@@ -844,9 +853,7 @@ exports.getCategories = async (req, res) => {
         }))
 
         result.forEach(parentCategory => {
-            // console.log("here: ",categories.filter(category => category.parent && category.parent.toString() === parentCategory._id.toString()) )
             parentCategory.children = categories.filter(category => category.parent && category.parent.toString() === parentCategory._id.toString());
-
         });
 
         res.status(200).json(result)
@@ -891,7 +898,9 @@ exports.getProductsByFilter = async (req, res) => {
             parent : new mongoose.Types.ObjectId(category._id)
         })
 
-        let query = {};
+        let query = {
+            auction_live : 0
+        };
         let sort = {}
 
         //price
@@ -953,21 +962,26 @@ exports.getProductsByFilter = async (req, res) => {
 
         // trạng thái đã sd hay chưa
         if (req.query.state) {
-            if (Array.isArray(req.query.state)) {
-                query.is_used = {$in : req.query.state.map((item) => parseInt(item, 10))}  ;
-            } else {
-                query.is_used = parseInt(req.query.state);
+            if (!Array.isArray(req.query.state)) {
+                const products = await Product.find({ is_used: parseInt(req.query.state) }, '_id');
+                const productIds = products.map(product => product._id);
+                if(productIds.length > 0 ){
+                    query.product_id = { $in: productIds };
+                }
             }
         }
 
         if (req.query.sortBy) {
             const parts = splitString(req.query.sortBy)
-            sort[parts[0]] = parts[1]
+            if(parts[0] !== 'bid_count'){
+                sort[parts[0]] = parts[1]
+            }else {
+                sort['bids'] = parts[1]
+            }
         }
 
         const page = parseInt(req.query.page) - 1 || 0
         const limit = 3
-
 
         query.status = 3
         if(query.start_time){
@@ -985,34 +999,37 @@ exports.getProductsByFilter = async (req, res) => {
             };
         }
 
-        const products = await Product.find(query)
+        const products = await Auction.find(query)
             .sort(sort)
             .skip(page*limit)
             .limit(limit)
+            .populate('product_id','product_name main_image')
 
-        const total = await Product.countDocuments(query)
+        const total = await Auction.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
 
         if (products.length !== 0) {
             for (let i = 0; i < products.length; i++) {
-                const count = await Auction.aggregate([
-                    {$match: {product_id: products[i]._id}},
-                    {$group: {_id: "$product_id", count: {$sum: 1}}}
-                ]);
-                if (count.length > 0) {
-                    products[i] = {...products[i]._doc, ...count[0]}
+                // const count = await Bid.aggregate([
+                //     {$match: {auction_id: products[i]._id}},
+                //     {$group: {_id: "$auction_id", count: {$sum: 1}}}
+                // ])
+                const count = products[i].bids.length
+                if (count > 0) {
+                    products[i] = {...products[i]._doc, count : count}
                 } else {
                     products[i] = {...products[i]._doc, count: 0}
                 }
             }
         }
-        if(sort.bid_count){
-            if(sort.bid_count === 1){
-                products.sort((a, b) => a.count - b.count);
-            }else
-            products.sort((a, b) => b.count - a.count);
-        }
+
+        // if(sort.bid_count){
+        //     if(sort.bid_count === 1){
+        //         products.sort((a, b) => a.count - b.count);
+        //     }else
+        //     products.sort((a, b) => b.count - a.count);
+        // }
         const response = {
             error:false,
             total,
@@ -1029,19 +1046,20 @@ exports.getProductsByFilter = async (req, res) => {
 exports.getRalatedProduct = async (req, res) => {
     try {
         const id = req.params.id
-        const product = await Product.findById(id).select('_id category_id ')
+        const product = await Auction.findById(id).select('_id category_id ')
 
         if (!product) {
             return res.status(404).json({ message: 'Không tìm thấy sản phẩm đấu giá.' })
         }
 
-        const relatedProducts = await Product.find({
+        const relatedProducts = await Auction.find({
             status: 3,
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
             category_id: product.category_id,
             _id : {$ne : product._id}
-        }).select('_id main_image finish_time product_name final_price reserve_price category_id')
+        }).select('_id finish_time final_price reserve_price category_id')
+            .populate('product_id','main_image product_name')
 
         res.status(200).json(relatedProducts)
     } catch (error) {
@@ -1050,20 +1068,22 @@ exports.getRalatedProduct = async (req, res) => {
 }
 
 
-// api cho 1 laanf trả giá
+// api cho 1 lần trả giá online
 exports.createOnlineAuction = async (req, res) => {
     try {
         const userId = req.userId
         const username = req.username
         const productId = req.body.productId
         const winner_id = new mongoose.Types.ObjectId(userId)
+        const bid_price = req.body?.final_price
 
         initAuctionSocket(productId);
         const auctionNamespace = activeAuctions[productId].namespace;
 
-        const product = await Product.findOne({
+        const product = await Auction.findOne({
                 _id: new mongoose.Types.ObjectId(productId),
                 status: 3,
+                auction_live: {$in : [1,2]} ,
                 seller_id: {$ne : winner_id},
                 start_time: {$lt: new Date()},
                 finish_time: {$gt: new Date()},
@@ -1072,33 +1092,25 @@ exports.createOnlineAuction = async (req, res) => {
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
         }
-        const bid = new Auction({
-            product_id: new mongoose.Types.ObjectId(productId),
-            user: new mongoose.Types.ObjectId(userId),
+
+        const bid = new Bid({
+            auction_id: new mongoose.Types.ObjectId(productId),
             username: username,
-            bid_price: parseInt(req.body?.final_price),
+            bid_price: bid_price,
             bid_time: new Date(),
         })
-        await bid.save();
-        // const topBidList = await Auction.aggregate([
-        //     {
-        //         $match: {product_id: new mongoose.Types.ObjectId(productId)}
-        //     },
-        //     {
-        //         $sort: {createdAt: -1}
-        //     },
-        //     {
-        //         $limit: 3
-        //     }
-        // ])
-        // const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+
+        if(bid){
+            product.bids.push(bid._id)
+        }
+        await Promise.all([product.save(), bid.save()]);
+
         const new_bid = {
             id: bid._id,
             bid_price: bid.bid_price,
             username: bid.username,
             bid_time: bid.bid_time,
         }
-
         auctionNamespace.emit(`auction`, new_bid)
 
         res.status(200).json({message: 'Thực hiện trả giá thành công', new_bid})
@@ -1111,12 +1123,18 @@ exports.getTopBidOfProduct = async (req, res) => {
     try {
         const productId = req.params.product_id
 
-        initAuctionSocket(productId);
-        const auctionNamespace = activeAuctions[productId].namespace;
+        // initAuctionSocket(productId);
+        // const auctionNamespace = activeAuctions[productId].namespace;
+        const product = await Auction.findById(
+            productId
+        ).select('step_price reserve_price finish_time type_of_auction')
+            .populate('product_id','main_image')
+            .lean()
+        // lấy type của sản phẩm để get top bit . sort sẽ = 1 or -1 tùy type
 
-        const topBidList = await Auction.aggregate([
+        const topBidList = await Bid.aggregate([
             {
-                $match: {product_id: new mongoose.Types.ObjectId(productId)}
+                $match: {auction_id: new mongoose.Types.ObjectId(productId)}
             },
             {
                 $sort: {createdAt: -1}
@@ -1125,13 +1143,9 @@ exports.getTopBidOfProduct = async (req, res) => {
                 $limit: 3
             }
         ])
-        const product = await Product.findById(
-            productId
-        ).select('step_price main_image reserve_price finish_time')
-            .lean()
 
         const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
-        return res.status(200).json({list : topBidList, product , highest_price })
+        return res.status(200).json({list : topBidList, product , highest_price, type_of_auction : product.type_of_auction })
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR 1', err})
     }
@@ -1142,19 +1156,20 @@ exports.getCheckOutDeposit = async (req, res) => {
         const id = req.params.id
         const username = req.username
         const userId = req.userId
-        let product = await Product.findOne({
+        let product = await Auction.findOne({
             _id : new mongoose.Types.ObjectId(id),
             auction_live: 2,
-            register_time : {$gt : new Date()}
+            register_finish : {$gt : new Date()},
+            register_start : {$lt : new Date()}
         })
-            .select('_id deposit_price product_name')
+            .select('_id deposit_price auction_name')
 
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' })
         }
         const registration = await Registration.findOne({
             user_id: new mongoose.Types.ObjectId(userId),
-            product_id : new mongoose.Types.ObjectId(id),
+            auction_id : new mongoose.Types.ObjectId(id),
         })
         if(registration){
             return res.status(404).json({ message: 'You was Registered.' })
@@ -1171,13 +1186,14 @@ exports.getConfirmDeposit = async (req, res) => {
         const productId = req.params.id
         const userId = req.userId
         let registration
-        const product = await Product.findOne(
+        const product = await Auction.findOne(
             {
                 _id: new mongoose.Types.ObjectId(productId),
                 auction_live: 2,
             },
-            'code_access product_name rank is_used deposit_price main_image'
-        );
+            'code_access deposit_price'
+        ).populate('product_id','product_name rank is_used main_image')
+
         if (!product) {
             return res.status(404).json({ message: 'Product not found.' })
         }
@@ -1202,16 +1218,19 @@ exports.checkoutDeposit = async (req, res) => {
     try {
         const userId = req.userId
 
-        const product = await Product.findOne({
-            _id: new mongoose.Types.ObjectId(req.body.product_id)
-        })
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(req.body.product_id),
+            auction_live: 2
+        }).populate('product_id')
+
         const registration = await Registration.findOne({
             user_id: new mongoose.Types.ObjectId(userId),
-            product_id : new mongoose.Types.ObjectId(req.body.product_id),
+            auction_id : new mongoose.Types.ObjectId(req.body.product_id),
         })
         if(registration){
             return res.status(404).json({ message: 'You was Registered.' })
         }
+
         const user = await User.findById({
             _id: userId
         })
@@ -1230,7 +1249,7 @@ exports.checkoutDeposit = async (req, res) => {
                 // mã đặt đơn
                 var orderId = new Date().getTime() + ":0123456778";
                 //
-                var orderInfo = "Thanh toán sản phẩm "+ product.product_name;
+                var orderInfo = "Thanh toán sản phẩm "+ product?.product_id?.product_name;
                 // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
                 var redirectUrl = `http://localhost:5173/confirm/${product._id}`
                     // process.env.redirectUrlDeposit;
@@ -1302,7 +1321,7 @@ exports.checkoutDeposit = async (req, res) => {
 
                             const registration = new Registration({
                                 user_id: new mongoose.Types.ObjectId(userId),
-                                product_id : product._id,
+                                auction_id : product._id,
                                 payment_method: 1,
                                 code : randomCode,
                             })
@@ -1313,7 +1332,7 @@ exports.checkoutDeposit = async (req, res) => {
                             await Promise.all([product.save(), registration.save()]);
 
                             if(registration){
-                                await sendEmail({ email: user.email , productName : product.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                                await sendEmail({ email: user.email , productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
                             }
                         }
                         res.json({message: 'Thành công', payUrl: url});
@@ -1349,7 +1368,7 @@ exports.checkoutDeposit = async (req, res) => {
                     item: "[]",
                     embeddata: JSON.stringify(embeddata),
                     amount: product.deposit_price + 50000,
-                    description: `Auction - Thanh toán đăng ký đấu giá sản phẩm ${product.product_name}`,
+                    description: `Auction - Thanh toán đăng ký đấu giá sản phẩm ${product?.product_id?.product_name}`,
                     bankcode:"zalopayapp",
                 };
 
@@ -1372,7 +1391,7 @@ exports.checkoutDeposit = async (req, res) => {
 
                     const registration = new Registration({
                         user_id: new mongoose.Types.ObjectId(userId),
-                        product_id : product._id,
+                        auction_id : product._id,
                         payment_method: 2,
                         code : randomCode,
                     })
@@ -1383,7 +1402,7 @@ exports.checkoutDeposit = async (req, res) => {
                     await Promise.all([product.save(), registration.save()]);
 
                     if(registration){
-                        await sendEmail({ email: user.email , productName : product.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                        await sendEmail({ email: user.email , productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
                     }
                 }
                 res.status(200).json({message: 'Thành công', payUrl: returnUrl});
@@ -1406,7 +1425,7 @@ exports.checkPWStreamRoom = async (req, res) => {
 
         const checkRegis = await Registration.findOne({
             user_id: new mongoose.Types.ObjectId(userId),
-            product_id: new mongoose.Types.ObjectId(productId),
+            auction_id: new mongoose.Types.ObjectId(productId),
             code : codeFromUser
         })
 
@@ -1414,7 +1433,7 @@ exports.checkPWStreamRoom = async (req, res) => {
             return res.status(404).json({message : 'Mật khẩu không chính xác. Bạn hãy thử lại!'})
         }
 
-        const product = await Product.findOne({
+        const product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(productId),
             auction_live: 2,
             status: 3,
@@ -1431,7 +1450,7 @@ exports.checkPWStreamRoom = async (req, res) => {
 
         const response = {
             status : 200,
-            message: 'Xác thức thành công!',
+            message: 'Xác thực thành công!',
             pathUrl: `http://localhost:5173/streamRoom/${product._id.toString()}?accessCode=${accessCode}`,
             error: false
         }
@@ -1440,7 +1459,7 @@ exports.checkPWStreamRoom = async (req, res) => {
         return res.status(500).json({message: 'DATABASE_ERROR',error: true, err})
     }
 }
-
+// phòng đấu giá
 exports.getStreamAuctionGeneral = async (req, res) => {
     try {
         const  type  = reqConvertType(req.body?.type)
@@ -1453,7 +1472,7 @@ exports.getStreamAuctionGeneral = async (req, res) => {
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
         }
-        console.log(keyword)
+
         if(keyword){
             query.room_id = { $regex: keyword, $options: 'i' }
         }
@@ -1461,13 +1480,14 @@ exports.getStreamAuctionGeneral = async (req, res) => {
         const page = parseInt(req.body.query.page) - 1 || 0
 
         const limit = 15
-        const products = await Product
+        const products = await Auction
             .find(query)
             .skip(page*limit)
             .limit(limit)
-            .select('_id product_name main_image finish_time room_id')
+            .select('_id finish_time room_id')
+            .populate('product_id','product_name main_image')
 
-        const total = await Product.countDocuments(query)
+        const total = await Auction.countDocuments(query)
 
         const totalPage = Math.ceil(total / limit)
 

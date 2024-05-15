@@ -1,7 +1,6 @@
 const {mongoose} = require('mongoose')
 const Product = require("../models/product.model");
 const Request = require("../models/request.model");
-const Delivery = require("../models/delivery.model");
 const {Storage} = require("@google-cloud/storage");
 const {format} = require("util");
 const {adminProductStatus, adminRequestStatus,
@@ -18,6 +17,7 @@ const {createBlog} = require("../service/blog.service");
 const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin} = require("../service/admin.service");
 const Notification = require("../models/notification.model");
 const {customAlphabet} = require("nanoid");
+const Auction = require("../models/auction.model");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -55,24 +55,24 @@ exports.getAdminProfile = async (req, res) => {
 
 exports.adminGetRequestCount = async (req, res) => {
     try {
-        const countNewReq = await Request.countDocuments({status: 1})
+        const countNewReq = await Request.countDocuments({status: 1, admin_belong: 0})
 
-        const countApproved = await Product.countDocuments({
-            status: 2, admin_belong: {$exists: false}
+        const countApproved = await Auction.countDocuments({
+            status: 2, admin_belong: 0
         })
 
         const countReject = await Request.countDocuments({
-            status: 13, admin_belong: {$exists: false}
+            status: 13, admin_belong: 0
         })
 
-        const countCancel = await Product.countDocuments({
-            status: 11, admin_belong: {$exists: false}
+        const countCancel = await Auction.countDocuments({
+            status: 11, admin_belong: 0
         })
-        const countBidding = await Product.countDocuments({
-            status: 3, admin_belong: {$exists: false}
+        const countBidding = await Auction.countDocuments({
+            status: 3, admin_belong: 0
         })
-        const countReturn = await Product.countDocuments({
-            status: 9, admin_belong: {$exists: false}
+        const countReturn = await Auction.countDocuments({
+            status: 9, admin_belong: 0
         })
         const countAdminReqTracking = {
             countNewReq,
@@ -94,22 +94,18 @@ exports.adminGetRequestList = async (req, res) => {
 
         let adminRequestList
 
-        // if(status === 34){
-        //      adminRequestList = await Product.find({
-        //         status: { $in: [3, 4] },
-        //     }).populate('seller_id', 'username phone')
-        //
-        //     return res.status(200).json({adminRequestList, status})
-        // }
         if (status === 1 || status === 13) {
             adminRequestList = await Request.find({
                 status: status
             }).populate('seller_id', 'username name phone')
+                .populate('product_id')
+
         } else {
-            adminRequestList = await Product.find({
+            adminRequestList = await Auction.find({
                 status: status,
-                admin_belong: {$exists: false}
+                admin_belong: 0
             }).populate('seller_id', 'username name phone')
+                .populate('product_id')
         }
 
         res.status(200).json({adminRequestList, status})
@@ -123,14 +119,15 @@ exports.adminGetBiddingProductList = async (req, res) => {
         const status = adminProductStatus(req.body?.status)
 
         if (status === 34) {
-            const adminBiddingList = await Product.find({
+            //này cần sửa fe nữa , admin bán thì k câần pupulate ng bán :)
+            const adminBiddingList = await Auction.find({
                 status: {$in: [3, 4]},
                 admin_belong: 1
             }).populate('seller_id', 'username phone')
 
             return res.status(200).json({adminBiddingList, status})
         }
-        const adminBiddingList = await Product.find({
+        const adminBiddingList = await Auction.find({
             status: status,
             admin_belong: 1
         }).populate('seller_id', 'username phone')
@@ -143,32 +140,33 @@ exports.adminGetBiddingProductList = async (req, res) => {
 
 exports.adminGetBiddingProductCount = async (req, res) => {
     try {
-        const countNewProduct = await Product.countDocuments({status: 2, admin_belong: 1})
+        const countNewProduct = await Auction.countDocuments(
+            {status: 2, admin_belong: 1})
 
-        const countProductBid = await Product.countDocuments({
+        const countProductBid = await Auction.countDocuments({
             status: {$in: [3, 4]}, admin_belong: 1
         })
 
-        const countProductConfirm = await Product.countDocuments({
+        const countProductConfirm = await Auction.countDocuments({
             status: 6, admin_belong: 1
         })
 
-        const countProductSuccess = await Product.countDocuments({
+        const countProductSuccess = await Auction.countDocuments({
             status: 5, admin_belong: 1
         })
-        const countProductDelivery = await Product.countDocuments({
+        const countProductDelivery = await Auction.countDocuments({
             status: 7, admin_belong: 1
         })
-        const countProductCompleted = await Product.countDocuments({
+        const countProductCompleted = await Auction.countDocuments({
             status: 8, admin_belong: 1
         })
-        const countProductCancel = await Product.countDocuments({
+        const countProductCancel = await Auction.countDocuments({
             status: 11, admin_belong: 1
         })
-        const countProductFailure = await Product.countDocuments({
+        const countProductFailure = await Auction.countDocuments({
             status: 10, admin_belong: 1
         })
-        const countProductReturn = await Product.countDocuments({
+        const countProductReturn = await Auction.countDocuments({
             status: 9, admin_belong: 1
         })
         const countAdminReqTracking = {
@@ -192,22 +190,20 @@ exports.adminGetRequestDetail = async (req, res) => {
     try {
         const requestId = req.params.requestId
 
-        const request = await Product.findOne({
+        const request = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
         }).populate('winner_id category_id', 'phone name')
-            .populate('seller_id', 'point average_rating name phone')
+            .populate('seller_id', 'shop_point average_rating name phone')
+            .populate('product_id')
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
-            }).populate('seller_id category_id', 'point average_rating name')
+            }).populate('seller_id category_id', 'shop_point average_rating name')
+                .populate('product_id')
             return res.status(200).json(newReq)
         }
 
-        // const deliData = await Delivery.findOne({
-        //     product_id: new mongoose.Types.ObjectId(request._id)
-        // }).select('address name phone note completed_at')
-
-        res.status(200).json({...request._doc})
+            return res.status(200).json(request)
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
@@ -256,8 +252,7 @@ exports.adminCreateProductAution = async (req, res) => {
     const bucket = storage.bucket(process.env.BUCKET_NAME); // Get this from Google Cloud -> Storage
 
     try {
-        const adminId = req.userId
-        const seller_id = new mongoose.Types.ObjectId(adminId)
+        const seller_id = new mongoose.Types.ObjectId(req.userId)
 
         if (!req.files || req.files.length === 0) {
             return res.status(500).send({message: "Please upload at least one file!"});
@@ -265,7 +260,7 @@ exports.adminCreateProductAution = async (req, res) => {
 
         //Single file
         const uploadMainImagePromise = new Promise((resolve, reject) => {
-            const blob = bucket.file('admin' + Date.now() + adminId + req.files['singlefile[]'][0].originalname);
+            const blob = bucket.file('admin' + Date.now()  + req.files['singlefile[]'][0].originalname);
             const blobStream = blob.createWriteStream({resumable: false});
 
             blobStream.on("error", (err) => {
@@ -284,7 +279,7 @@ exports.adminCreateProductAution = async (req, res) => {
 
         //multifile
         const uploadPromises = req.files['files[]'].map(file => {
-            const blob = bucket.file('admin' + Date.now() + adminId + file.originalname);
+            const blob = bucket.file('admin' + Date.now()  + file.originalname);
             const blobStream = blob.createWriteStream(
                 {resumable: false});
 
@@ -308,6 +303,19 @@ exports.adminCreateProductAution = async (req, res) => {
             description: req.body?.description,
             product_name: req.body?.product_name,
             rank: req.body?.rank,
+            is_used : parseInt(req.body?.is_used),
+            brand:req.body.brand ? req.body.brand : null,
+            delivery_from:req.body?.delivery_from,
+            can_return:parseInt(req.body?.can_return),
+            image_list: imageUrls,
+            main_image: main_image,
+        })
+        await product.save();
+
+        const auction = new Auction({
+            product_id : product._id,
+            category_id:new mongoose.Types.ObjectId(req.body?.category),
+            auction_name: req.body?.product_name,
             reserve_price: parseInt(req.body?.reserve_price),
             shipping_fee: parseInt(req.body?.shipping_fee),
             step_price: parseInt(req.body?.step_price),
@@ -315,32 +323,27 @@ exports.adminCreateProductAution = async (req, res) => {
             admin_belong: 1,
             auction_live : parseInt(req.body?.auction_live),
             status: 2,
-            is_used : parseInt(req.body?.is_used),
-            brand:req.body.brand ? req.body.brand : null,
-            delivery_from:req.body?.delivery_from,
-            can_return:parseInt(req.body?.can_return),
             type_of_auction: req.body?.type_of_auction,
             start_time: req.body?.start_time,
             finish_time: req.body?.finish_time,
             request_time: new Date(),
-            image_list: imageUrls,
-            main_image: main_image,
+            bids:[],
         })
 
-        if(product.auction_live === 0){
-            product.sale_price = parseInt(req.body?.sale_price) || null
+        if(auction.auction_live === 0){
+            auction.sale_price = parseInt(req.body?.sale_price) || null
         }
-        if(product.auction_live){
-            product.register_time = req.body?.register_start
-            // product.register_finish = req.body?.register_finish
-            product.deposit_price = req.body?.deposit_price
+        if(auction.auction_live === 2){
+            auction.register_start = req.body?.register_start
+            auction.register_finish = req.body?.register_finish
+            auction.deposit_price = req.body?.deposit_price
             const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 5)
-            product.room_id = getNgayThangNam() + nanoid()
-            product.code_access = []
+            auction.room_id = getNgayThangNam() + nanoid()
+            auction.code_access = []
         }
 
-        await product.save();
-        res.status(200).json(product)
+        await auction.save();
+        res.status(200).json(auction)
     } catch (err) {
         console.log(err)
         return res.status(500).json({message: 'DATABASE_ERROR', err})
@@ -349,21 +352,21 @@ exports.adminCreateProductAution = async (req, res) => {
 
 exports.adminCancelProduct = async (req, res) => {
     try {
-        const product_id = req.body?.req_id
+        const auction_id = req.body?.req_id
         const cancel_time = req.body?.reject_time
 
-        const product = await Product.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(product_id),
+        const auction = await Auction.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(auction_id),
                 status: 2
             },
             {
                 $set: {
-                    admin_status: 11,
+                    status: 11,
                     cancel_time: cancel_time,
                 }
             })
 
-        if (!product) {
+        if (!auction) {
             return res.status(500).json({message: 'Không tìm thấy sản phẩm đấu giá!'})
         }
         res.status(200).json({message: `Xóa sản phẩm đấu giá thành công`});
@@ -391,7 +394,6 @@ exports.updateStatusByAdminController = async (req, res) => {
 
 exports.adminGetRequestHistory = async (req, res) => {
     try {
-
         const start_time = req.query?.start_time
         const finish_time = req.query?.finish_time
         const phone = req.query?.phone
@@ -403,7 +405,8 @@ exports.adminGetRequestHistory = async (req, res) => {
                 seller_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 }
-            }).select('_id createdAt product_name status rank').populate('seller_id', 'phone name')
+            }).select('_id createdAt status ').populate('seller_id', 'phone name')
+                .populate('product_id')
         } else if (phone) {
             requests = await Request.find({
                 createdAt: {
@@ -413,14 +416,16 @@ exports.adminGetRequestHistory = async (req, res) => {
                 seller_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 }
-            }).select('_id createdAt product_name status rank').populate('seller_id', 'phone name')
+            }).select('_id createdAt status ').populate('seller_id', 'phone name')
+                .populate('product_id')
         } else {
             requests = await Request.find({
                 createdAt: {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 }
-            }).select(' _id createdAt product_name status rank').populate('seller_id', 'phone name')
+            }).select(' _id createdAt status ').populate('seller_id', 'phone name')
+                .populate('product_id')
         }
 
         const total = {
@@ -442,18 +447,18 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
         const finish_time = req.query?.finish_time
         const phone = req.query?.phone
         const df = req.query?.df
-        let products
+        let auctions
 
         if (df === 'true') {
-            products = await Product.find({
+            auctions = await Auction.find({
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: {$in: [8, 10, 11, 14]},
-                admin_belong: {$exists: false},
-            }).select('_id product_name status start_time finish_time').populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select('_id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         } else if (phone) {
-            products = await Product.find({
+            auctions = await Auction.find({
                 updatedAt: {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
@@ -462,28 +467,28 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: {$in: [8, 10, 11, 14]},
-                admin_belong: {$exists: false},
-            }).select('_id product_name status start_time finish_time').populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select('_id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         } else {
-            products = await Product.find({
+            auctions = await Auction.find({
                 updatedAt: {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
                 status: {$in: [8, 10, 11, 14]},
-                admin_belong: {$exists: false},
-            }).select(' _id product_name status start_time finish_time').populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select(' _id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         }
 
         const total = {
-            total_product: products.length,
-            total_completed: products.filter((req) => req.status === 8).length,
-            total_failure: products.filter((req) => req.status === 10).length,
-            total_canceled: products.filter((req) => req.status === 11).length,
-            total_returned: products.filter((req) => req.status === 14).length,
+            total_product: auctions.length,
+            total_completed: auctions.filter((req) => req.status === 8).length,
+            total_failure: auctions.filter((req) => req.status === 10).length,
+            total_canceled: auctions.filter((req) => req.status === 11).length,
+            total_returned: auctions.filter((req) => req.status === 14).length,
         }
 
-        res.status(200).json({products, total})
+        res.status(200).json({auctions, total})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
@@ -491,14 +496,13 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
 
 exports.adminGetRequestHistoryDetail = async (req, res) => {
     try {
-
         const requestId = req.params.requestId
 
         const request = await Request.findOne({
             _id: new mongoose.Types.ObjectId(requestId),
-            admin_belong: {$exists: false},
-        }).populate('seller_id category_id', 'point average_rating name phone')
-
+            admin_belong: 0,
+        }).populate('seller_id category_id', 'shop_point average_rating name phone')
+            .populate('product_id')
 
         res.status(200).json(request)
     } catch (err) {
@@ -512,18 +516,18 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
         const finish_time = req.query?.finish_time
         const phone = req.query?.phone
         const df = req.query?.df
-        let products
+        let auctions
 
         if (df === 'true') {
-            products = await Product.find({
+            auctions = await Auction.find({
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: {$in: [8, 10, 11, 14]},
                 admin_belong: 1,
-            }).select('_id product_name status start_time finish_time')
+            }).select('_id status start_time finish_time').populate('product_id','product_name')
         } else if (phone) {
-            products = await Product.find({
+            auctions = await Auction.find({
                 updatedAt: {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
@@ -533,27 +537,27 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
                 },
                 status: {$in: [8, 10, 11, 14]},
                 admin_belong: 1,
-            }).select('_id product_name status start_time finish_time')
+            }).select('_id status start_time finish_time').populate('product_id','product_name')
         } else {
-            products = await Product.find({
+            auctions = await Auction.find({
                 updatedAt: {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
                 status: {$in: [8, 10, 11, 14]},
                 admin_belong: 1,
-            }).select(' _id product_name status start_time finish_time')
+            }).select(' _id status start_time finish_time').populate('product_id','product_name')
         }
 
         const total = {
-            total_product: products.length,
-            total_completed: products.filter((req) => req.status === 8).length,
-            total_failure: products.filter((req) => req.status === 10).length,
-            total_canceled: products.filter((req) => req.status === 11).length,
-            total_returned: products.filter((req) => req.status === 14).length,
+            total_product: auctions.length,
+            total_completed: auctions.filter((req) => req.status === 8).length,
+            total_failure: auctions.filter((req) => req.status === 10).length,
+            total_canceled: auctions.filter((req) => req.status === 11).length,
+            total_returned: auctions.filter((req) => req.status === 14).length,
         }
 
-        res.status(200).json({products, total})
+        res.status(200).json({auctions, total})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
@@ -563,10 +567,11 @@ exports.adminAuctionCompletedDetail = async (req, res) => {
     try {
         const requestId = req.params.requestId
 
-        const request = await Product.findOne({
+        const request = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(requestId),
             admin_belong: 1
         }).populate('winner_id category_id', 'phone name')
+            .populate('product_id')
 
         res.status(200).json({...request._doc})
     } catch (err) {
@@ -583,18 +588,18 @@ exports.adminGetProductReturnOfUser = async (req, res) => {
         let returnProducts
 
         if (df === 'true') {
-            returnProducts = await Product.find({
+            returnProducts = await Auction.find({
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: 9,
-                admin_belong: {$exists: false},
-            }).select('_id product_name status product_delivery.return_time')
-                .populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select('_id status delivery.return_time')
+                .populate('seller_id product_id', 'name product_name')
                 .populate('winner_id','name phone')
         } else if (phone) {
-            returnProducts = await Product.find({
-                'product_delivery.return_time': {
+            returnProducts = await Auction.find({
+                'delivery.return_time': {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
@@ -602,20 +607,20 @@ exports.adminGetProductReturnOfUser = async (req, res) => {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: 9,
-                admin_belong: {$exists: false},
-            }).select('_id product_name status product_delivery.return_time')
-                .populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select('_id status delivery.return_time')
+                .populate('seller_id product_id', 'name product_name')
                 .populate('winner_id','name phone')
         } else {
-            returnProducts = await Product.find({
-                'product_delivery.return_time': {
+            returnProducts = await Auction.find({
+                'delivery.return_time': {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
                 status: 9,
-                admin_belong: {$exists: false},
-            }).select(' _id product_name status product_delivery.return_time')
-                .populate('seller_id', 'name')
+                admin_belong: 0,
+            }).select(' _id status delivery.return_time')
+                .populate('seller_id product_id', 'name product_name')
                 .populate('winner_id','name phone')
         }
 
@@ -638,17 +643,18 @@ exports.adminGetProductReturnOfAdmin = async (req, res) => {
         let returnProducts
 
         if (df === 'true') {
-            returnProducts = await Product.find({
+            returnProducts = await Auction.find({
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
                 status: 9,
                 admin_belong: 1,
-            }).select('_id product_name status product_delivery.return_time')
+            }).select('_id status delivery.return_time')
+                .populate('product_id', 'product_name')
                 .populate('winner_id','name phone')
         } else if (phone) {
-            returnProducts = await Product.find({
-                'product_delivery.return_time': {
+            returnProducts = await Auction.find({
+                'delivery.return_time': {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
@@ -657,17 +663,19 @@ exports.adminGetProductReturnOfAdmin = async (req, res) => {
                 },
                 status: 9,
                 admin_belong: 1,
-            }).select('_id product_name status product_delivery.return_time')
+            }).select('_id status delivery.return_time')
+                .populate('product_id', 'product_name')
                 .populate('winner_id','name phone')
         } else {
-            returnProducts = await Product.find({
-                'product_delivery.return_time': {
+            returnProducts = await Auction.find({
+                'delivery.return_time': {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
                 status: 9,
                 admin_belong: 1,
-            }).select(' _id product_name status product_delivery.return_time')
+            }).select(' _id status delivery.return_time')
+                .populate('product_id', 'product_name')
                 .populate('winner_id','name phone')
         }
 

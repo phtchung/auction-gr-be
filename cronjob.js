@@ -1,13 +1,14 @@
 const cron = require('node-cron');
 const Product = require("./app/models/product.model");
 const User = require("./app/models/user.model");
+const Auction = require("./app/models/auction.model");
 
 // update trạng thái sản phẩm ( chuyển sang đấu giá )
 const updateBiddingProduct = async () => {
     const currentTime = new Date();
 
     // Cập nhật trường status
-    await Product.updateMany(
+    await Auction.updateMany(
         {
             status: 2,
             start_time: { $lt: currentTime }
@@ -58,18 +59,18 @@ const startFinishSuccessAuctionJob = () => {
 
 // tự động hopoanf thành sau 7 ngày
 const doneDelivery = async () => {
-     await Product.updateMany(
+     await Auction.updateMany(
         {
             status: 7,
-            'product_delivery.delivery_start_time': { $lt : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-            'product_delivery.completed_time': { $exists: false }
+            'delivery.delivery_start_time': { $lt : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+            'delivery.completed_time': { $exists: false }
         },
         [
             {
                 $set: {
                     status: 8,
-                    'product_delivery.status': 8,
-                    'product_delivery.completed_time': new Date(),
+                    'delivery.status': 8,
+                    'delivery.completed_time': new Date(),
                     is_review:0,
                     review_before: { $add: ["$victory_time", 30 * 24 * 60 * 60 * 1000] },
                 }
@@ -88,12 +89,10 @@ const startUpdateDeliveryJob = () => {
 
 // hủy đơn khi quá hạn điền thông tin
 const cancelDelivery = async () => {
-    const rs = await Product.updateMany(
+    const rs = await Auction.updateMany(
         {
             status: 4,
-            isDeliInfor:0,
             procedure_complete_time: { $lt : new Date() },
-            product_delivery: { $exists: false }
         },
         [
             {
@@ -106,12 +105,12 @@ const cancelDelivery = async () => {
     );
 //     còn đoạn trừ điểm người dùng nữa
     if(rs.modifiedCount > 0 ){
-        const canceledOrders = await Product.find({
+        const canceledOrders = await Auction.find({
             status: 11,
-            isDeliInfor:0,
+            'delivery.payment_method':{ $exists: false },
             cancel_time: { $exists: true }
         }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
-            .populate('winner_id');
+            .populate('winner_id','_id');
 
         for (const order of canceledOrders) {
             await User.updateOne(
@@ -124,7 +123,7 @@ const cancelDelivery = async () => {
 
 const cancelDeliveryJob = () => {
     const job5 = new cron.schedule(
-        '* * * * *', async function() {
+        '0 0,12 * * *', async function() {
             await cancelDelivery();
         });
     job5.start();
@@ -132,12 +131,10 @@ const cancelDeliveryJob = () => {
 
 
 const NotifyConfirmDelivery = async () => {
-    const rs = await Product.updateMany(
+    const rs = await Auction.updateMany(
         {
             status: 5,
-            isDeliInfor:1,
             delivery_before: { $lt : new Date() },
-            product_delivery: { $exists: true }
         },
         [
             {
@@ -150,12 +147,12 @@ const NotifyConfirmDelivery = async () => {
     );
 //     còn đoạn trừ điểm người dùng nữa
     if(rs.modifiedCount > 0 ){
-        const canceledOrders = await Product.find({
+        const canceledOrders = await Auction.find({
             status: 11,
-            isDeliInfor:1,
+            'delivery.payment_method' : { $exists: true },
             cancel_time: { $exists: true }
         }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
-            .populate('seller_id');
+            .populate('seller_id','_id');
 
         for (const order of canceledOrders) {
             await User.updateOne(

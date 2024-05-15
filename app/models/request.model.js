@@ -12,7 +12,11 @@ const Request = mongoose.model(
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Category'
             },
-            product_name: String,
+            product_id: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'Product'
+            },
+            request_name: String,
             status: {
                 type: Number,
                 enum: [1, 2, 13],
@@ -22,19 +26,6 @@ const Request = mongoose.model(
             reserve_price: Number,
             step_price: Number,
             shipping_fee: Number,
-            rank: String,
-            description: String,
-            main_image: String,
-            brand:String,
-            delivery_from:String,
-            can_return:{
-                type:Number,
-                enum:[0,1],
-            },
-            is_used: {
-                type: Number,
-                enum: [0, 1],
-            },
             auction_live: {
                 type: Number,
                 enum: [0, 1],
@@ -44,8 +35,8 @@ const Request = mongoose.model(
             approved_time: Date,
             start_time: Date,
             finish_time: Date,
-            image_list: [String],
-            type_of_auction: Number
+            type_of_auction: Number,
+            admin_belong : Number
         },
         {timestamps: true}
     )
