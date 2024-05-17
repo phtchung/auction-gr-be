@@ -18,6 +18,8 @@ const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnP
 const Notification = require("../models/notification.model");
 const {customAlphabet} = require("nanoid");
 const Auction = require("../models/auction.model");
+const Registration = require("../models/registration.model");
+const sendEmail = require("../utils/helper");
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -888,6 +890,109 @@ exports.deleteCategory = async (req, res) => {
                 _id :  new mongoose.Types.ObjectId(req.params.id) ,
             })
         res.status(200).json({message : ' Thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.getUserStreamAuction = async (req, res) => {
+    try {
+        const {inFor, room } = req.query
+        let data
+        let query = {}
+        if(inFor){
+            query.$or = [
+                { phone: { $regex: inFor, $options: 'i' } },
+                { username: { $regex: inFor, $options: 'i' } },
+                { email: { $regex: inFor, $options: 'i' } }
+            ]
+        }
+        const user = await User.findOne(query).select('_id')
+
+        if(!user){
+            return res.status(404).json({data : [], message : 'Không tìm thấy người dùng'})
+        }
+        if(room){
+             data = await Auction.findOne({
+                room_id : room
+            }).select('room_id code_access ')
+                .populate({
+                    path: 'code_access',
+                    match: { user_id: user._id },
+                    select: 'user_id'
+                });
+        }else {
+            data = await Registration.find({
+                user_id: user._id
+            })
+        }
+
+        res.status(200).json({data})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.ReSendCode = async (req, res) => {
+    try {
+        const {userId, auctionId} = req.body
+
+        const user = await User.findOne({
+            _id : new mongoose.Types.ObjectId(userId)
+        }).select('email _id')
+
+        if(!user){
+            return res.status(404).json({message: 'Không tìm thấy người dùng'})
+        }
+
+        const code = await Registration.findOne({
+            user_id: user._id,
+            auction_id : new mongoose.Types.ObjectId(auctionId)
+        }).populate({
+                path: 'auction_id',
+                select: 'product_id start_time',
+                populate: {
+                    path: 'product_id',
+                    select: 'product_name'
+                }
+            });
+
+        if(!code){
+            return res.status(404).json({message: 'Người dùng chưa đăng kí phiên đấu giá này'})
+        }
+
+        await sendEmail(
+            {email: user.email , productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
+
+        res.status(200).json({message:'Gửi lại email thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.sendCodeToAnotherEmail = async (req, res) => {
+    try {
+        const {email, userId, auctionId} = req.body
+
+        const code = await Registration.findOne({
+            user_id: user._id,
+            auction_id : new mongoose.Types.ObjectId(auctionId)
+        }).populate({
+            path: 'auction_id',
+            select: 'product_id start_time code_access',
+            populate: {
+                path: 'product_id',
+                select: 'product_name'
+            }
+        });
+        if(!code){
+            return res.status(404).json({message: 'Người dùng chưa đăng kí phiên đấu giá này'})
+        }
+
+        await sendEmail(
+            {email: email, productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
+
+        res.status(200).json({message:'Gửi lại email thành công'})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

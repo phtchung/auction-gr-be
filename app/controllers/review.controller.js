@@ -70,8 +70,6 @@ exports.UserReviewProduct = async (req, res) => {
             {$inc: {point: 20}})
         const rate = parseFloat(req.body.rate);
 
-
-
         if (rate) {
             const seller = await User.findOne({_id : product.seller_id})
             if(seller.average_rating === 0){
@@ -101,9 +99,30 @@ exports.UserReviewProduct = async (req, res) => {
                     ])
             }
 
-
         }
         res.status(200).json({message: 'Đánh giá thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+
+exports.getReview = async (req, res) => {
+    try {
+        const auctionId = req.body?.auction_id
+        const review = await Review.findOne({
+            auction_id: new mongoose.Types.ObjectId(auctionId)
+        }).populate('user_id','username')
+            .populate({
+                path: 'auction_id',
+                select: 'product_id',
+                populate: {
+                    path: 'product_id',
+                    select: 'product_name main_image'
+                }
+            });
+
+        res.status(200).json(review)
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

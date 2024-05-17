@@ -22,8 +22,9 @@ exports.getAuctionHistory = async (req, res) => {
             .sort({ updatedAt: -1 })
             .select('product_name rank reserve_price final_price product_delivery main_image is_review review_before')
             .lean()
-            .populate('seller_id', 'name')
+            .populate('seller_id')
             .populate('product_id')
+
 
         res.status(200).json(products)
     } catch (error) {
