@@ -10,4 +10,7 @@ module.exports = function (app) {
     })
 
     app.post('/user/reviewProduct', [authJwt.verifyToken],upload.array('files[]',5), controller.UserReviewProduct)
+
+    app.post('/getReview', [authJwt.verifyToken], controller.getReview)
+
 }

@@ -74,7 +74,7 @@ exports.getBiddingList = async (req, res) => {
         const data = await Auction.find(
             query
         )
-            .select('_id  start_time reserve_price seller_id finish_time ')
+            .select('_id auction_live start_time reserve_price seller_id finish_time ')
             .populate('product_id','product_name rank main_image')
             .populate('seller_id', 'name average_rating')
             .lean()
@@ -1123,8 +1123,8 @@ exports.getTopBidOfProduct = async (req, res) => {
     try {
         const productId = req.params.product_id
 
-        // initAuctionSocket(productId);
-        // const auctionNamespace = activeAuctions[productId].namespace;
+        initAuctionSocket(productId);
+        const auctionNamespace = activeAuctions[productId].namespace;
         const product = await Auction.findById(
             productId
         ).select('step_price reserve_price finish_time type_of_auction')
@@ -1138,6 +1138,53 @@ exports.getTopBidOfProduct = async (req, res) => {
             },
             {
                 $sort: {createdAt: -1}
+            },
+            {
+                $limit: 3
+            }
+        ])
+
+        const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
+        return res.status(200).json({list : topBidList, product , highest_price, type_of_auction : product.type_of_auction })
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR 1', err})
+    }
+}
+
+exports.getTopBidStream = async (req, res) => {
+    try {
+        const userId = req.userId
+        const {accessCode ,id: auctionId   } = req.body
+
+        initAuctionSocket(auctionId);
+        const auctionNamespace = activeAuctions[auctionId].namespace;
+        const checkRegis = await Registration.findOne({
+            user_id : new mongoose.Types.ObjectId(userId),
+            auction_id: new mongoose.Types.ObjectId(auctionId),
+            code_access:accessCode
+        })
+        if (!checkRegis){
+            return res.status(404).json({message: 'Mật khẩu không chính xác. Không có quyền truy cập phiên đấu giá này'})
+        }
+
+        const product = await Auction.findById(
+            auctionId
+        ).select('step_price reserve_price finish_time type_of_auction')
+            .populate('product_id','main_image')
+            .lean()
+        let sort = {}
+        if(product?.type_of_auction === 1){
+            sort.createdAt = -1
+        }else if(product?.type_of_auction === -1){
+            sort.createdAt = 1
+        }
+
+        const topBidList = await Bid.aggregate([
+            {
+                $match: {auction_id: new mongoose.Types.ObjectId(auctionId)}
+            },
+            {
+                $sort: sort
             },
             {
                 $limit: 3
@@ -1451,7 +1498,7 @@ exports.checkPWStreamRoom = async (req, res) => {
         const response = {
             status : 200,
             message: 'Xác thực thành công!',
-            pathUrl: `http://localhost:5173/streamRoom/${product._id.toString()}?accessCode=${accessCode}`,
+            pathUrl: `http://localhost:5173/biddingStream/${product._id.toString()}?accessCode=${accessCode}`,
             error: false
         }
         res.status(200).json(response);

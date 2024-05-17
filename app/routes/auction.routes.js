@@ -11,6 +11,8 @@ module.exports = function (app) {
 
   app.get('/auction/topBidList/:product_id', [authJwt.verifyToken], controller.getTopBidOfProduct)
 
+  app.post('/auction/topBidStream', [authJwt.verifyToken], controller.getTopBidStream)
+
   app.get('/auction/fullBidList/:product_id', [authJwt.verifyToken], controller.getFullBidOfProduct)
 
   app.post('/auction/bid', [authJwt.verifyToken], controller.createProductBid)

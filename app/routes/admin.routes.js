@@ -67,5 +67,10 @@ module.exports = function (app) {
 
   app.delete('/admin/category/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.deleteCategory)
 
+  app.post('/admin/streamAuction', [authJwt.verifyToken],authJwt.isAdmin, controller.getUserStreamAuction)
+
+  app.post('/admin/resendCode', [authJwt.verifyToken,authJwt.isAdmin], controller.ReSendCode)
+
+  app.post('/admin/resendCode', [authJwt.verifyToken,authJwt.isAdmin], controller.sendCodeToAnotherEmail)
 
 }
