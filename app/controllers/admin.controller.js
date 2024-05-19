@@ -898,33 +898,40 @@ exports.deleteCategory = async (req, res) => {
 exports.getUserStreamAuction = async (req, res) => {
     try {
         const {inFor, room } = req.query
-        let data
-        let query = {}
-        if(inFor){
-            query.$or = [
-                { phone: { $regex: inFor, $options: 'i' } },
-                { username: { $regex: inFor, $options: 'i' } },
-                { email: { $regex: inFor, $options: 'i' } }
-            ]
+        let data = []
+        let query = {
+            auction_live : 2
         }
-        const user = await User.findOne(query).select('_id')
+        //còn thiếu checkck finish time và start time
+        let query1 = {}
 
-        if(!user){
-            return res.status(404).json({data : [], message : 'Không tìm thấy người dùng'})
+        if(inFor){
+            const user = await User.findOne({
+                $or: [
+                    { phone: { $regex: inFor, $options: 'i' } },
+                    { username: { $regex: inFor, $options: 'i' } },
+                    { email: { $regex: inFor, $options: 'i' } }
+                ]
+            }).select('_id');
+            if(!user){
+                return res.status(404).json({data : [], message : 'Không tìm thấy người dùng'})
+            }else {
+               query1.user_id = new mongoose.Types.ObjectId(user._id)
+            }
         }
         if(room){
-             data = await Auction.findOne({
-                room_id : room
-            }).select('room_id code_access ')
-                .populate({
-                    path: 'code_access',
-                    match: { user_id: user._id },
-                    select: 'user_id'
-                });
-        }else {
-            data = await Registration.find({
-                user_id: user._id
-            })
+            query.room_id = { $regex: room, $options: 'i' }
+        }
+
+        const auction = await Auction.find(query)
+            .select('_id')
+        if(auction){
+            const auctionIds = auction.map((auc) => auc._id)
+            query1.auction_id =  {$in : auctionIds}
+
+            data =  await Registration.find(query1)
+                .populate('user_id','name phone email')
+                .populate('auction_id','room_id')
         }
 
         res.status(200).json({data})
@@ -973,9 +980,9 @@ exports.ReSendCode = async (req, res) => {
 exports.sendCodeToAnotherEmail = async (req, res) => {
     try {
         const {email, userId, auctionId} = req.body
-
+        console.log(email, auctionId)
         const code = await Registration.findOne({
-            user_id: user._id,
+            user_id:  new mongoose.Types.ObjectId(userId),
             auction_id : new mongoose.Types.ObjectId(auctionId)
         }).populate({
             path: 'auction_id',

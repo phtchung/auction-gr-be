@@ -71,6 +71,6 @@ module.exports = function (app) {
 
   app.post('/admin/resendCode', [authJwt.verifyToken,authJwt.isAdmin], controller.ReSendCode)
 
-  app.post('/admin/resendCode', [authJwt.verifyToken,authJwt.isAdmin], controller.sendCodeToAnotherEmail)
+  app.post('/admin/sendCodeToEmail', [authJwt.verifyToken,authJwt.isAdmin], controller.sendCodeToAnotherEmail)
 
 }
