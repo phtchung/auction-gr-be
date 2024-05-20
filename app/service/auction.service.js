@@ -9,6 +9,7 @@ const {v1: uuid} = require("uuid");
 const CryptoJS = require("crypto-js");
 const axios = require("axios");
 const Bid = require("../models/bid.model");
+const sse = require("../sse");
 require('dotenv').config()
 
 
@@ -39,10 +40,10 @@ exports.BuyProduct = async (req, res) => {
             temp.setDate(temp.getDate() + 2);
             temp.setHours(23, 59, 59, 0);
             product.delivery = {
+                ...product.delivery,
                 status : 4,
                 procedure_complete_time : temp
             }
-            await product.save()
 
             const bid = new Bid({
                 auction_id: new mongoose.Types.ObjectId(productId),
@@ -50,7 +51,11 @@ exports.BuyProduct = async (req, res) => {
                 bid_price: parseInt(req.body?.final_price),
                 bid_time: new Date(),
             })
-            await bid.save();
+            if (bid) {
+                product.bids.push(bid._id)
+            }
+            await Promise.all([product.save(), bid.save()]);
+
         }else {
             return {
                 data: [],

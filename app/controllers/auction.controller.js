@@ -188,6 +188,12 @@ exports.BuyProductController = async (req, res) => {
     const result = await BuyProduct(req);
     res.status(result.statusCode).json(result);
     if (!result.error) {
+        const data1 = {
+            winner: result.data.winner_id.toString(),
+            final_price: result?.data?.final_price,
+            url: '/',
+        };
+
         const data = new Notification ( {
             title : 'Đấu giá thành công',
             content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
@@ -196,6 +202,7 @@ exports.BuyProductController = async (req, res) => {
             receiver : [result.data.winner_id],
         })
         await data.save()
+        sse.send(data1, `finishAuction_${result.data._id.toString()}`);
         sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
     }
 }
@@ -1125,8 +1132,11 @@ exports.getTopBidOfProduct = async (req, res) => {
 
         initAuctionSocket(productId);
         const auctionNamespace = activeAuctions[productId].namespace;
-        const product = await Auction.findById(
-            productId
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()}}
         ).select('step_price reserve_price finish_time type_of_auction')
             .populate('product_id','main_image')
             .lean()

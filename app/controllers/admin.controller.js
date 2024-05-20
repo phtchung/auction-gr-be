@@ -2,11 +2,12 @@ const {mongoose} = require('mongoose')
 const Product = require("../models/product.model");
 const Request = require("../models/request.model");
 const {Storage} = require("@google-cloud/storage");
+const schedule = require('node-schedule');
 const {format} = require("util");
 const {adminProductStatus, adminRequestStatus,
     createTitleWinner,
     createContentWinner,
-    createContentSeller, formatDateTime, getNgayThangNam
+    createContentSeller, formatDateTime, getNgayThangNam, parseTime
 } = require("../utils/constant");
 const User = require("../models/user.model");
 const Role = require("../models/role.model");
@@ -14,12 +15,16 @@ const Blog = require("../models/blog.model");
 const Categories = require("../models/category.model");
 const sse = require("../sse/index")
 const {createBlog} = require("../service/blog.service");
-const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin} = require("../service/admin.service");
+const {adminApproveAuction, adminRejectRequest, acceptReturnProduct, denyReturnProduct, updateStatusByAdmin,
+    endAuctionNormal, endAuctionOnline
+} = require("../service/admin.service");
 const Notification = require("../models/notification.model");
 const {customAlphabet} = require("nanoid");
 const Auction = require("../models/auction.model");
 const Registration = require("../models/registration.model");
 const sendEmail = require("../utils/helper");
+const {auctions} = require("../socket/socket");
+
 
 exports.adminBoard = (req, res) => {
     res.status(200).send('Admin Content.')
@@ -213,7 +218,7 @@ exports.adminGetRequestDetail = async (req, res) => {
 
 
 exports.adminApproveAuctionController = async (req, res) => {
-    const result = await adminApproveAuction(req);
+    const result = await adminApproveAuction(req ,res, auctions);
     res.status(result.statusCode).json(result);
     if (!result.error) {
         const data = new Notification ({
@@ -300,6 +305,7 @@ exports.adminCreateProductAution = async (req, res) => {
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
 
+
         const product = new Product({
             category_id:new mongoose.Types.ObjectId(req.body?.category),
             description: req.body?.description,
@@ -345,6 +351,21 @@ exports.adminCreateProductAution = async (req, res) => {
         }
 
         await auction.save();
+        const endTime = new Date(auction.finish_time);
+        const auctionId = auction._id.toString()
+
+        auctions[auctionId] = { time : endTime , job : null };
+
+        if(auction.auction_live === 0){
+            auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                await endAuctionNormal(auctionId ,auctions );
+            });
+        }else {
+            auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                await endAuctionOnline(auctionId, auctions);
+            });
+        }
+
         res.status(200).json(auction)
     } catch (err) {
         console.log(err)

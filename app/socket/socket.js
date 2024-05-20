@@ -2,6 +2,9 @@ const express = require('express')
 const app = express()
 const {createServer} = require('node:http');
 const {Server} = require('socket.io');
+const Auction = require("../models/auction.model");
+const schedule = require("node-schedule");
+const {endAuctionNormal, endAuctionOnline} = require("../service/admin.service");
 const server = createServer(app);
 
 const io = new Server(server, {
@@ -90,7 +93,34 @@ io.on("connection", (socket) => {
         delete userSocketMap[userId];
     });
 });
+const auctions = {};
+exports.initializeFunc = async () => {
+    const auctionListOnGoing = await Auction.find({
+        status : 3,
+        finish_time: {$gt: new Date()},
+        start_time : {$lt: new Date()},
+    }).select('status finish_time')
 
+    if(auctionListOnGoing){
+        auctionListOnGoing.map((auc) => {
+            const endTime = new Date(auc.finish_time);
+            const auctionId = auc._id.toString()
+            auctions[auctionId] = { time : endTime , job : null };
+
+            if(auc.auction_live === 0){
+                auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                    await endAuctionNormal(auctionId, auctions);
+                });
+            }else {
+                auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                    await endAuctionOnline(auctionId,auctions);
+                });
+            }
+        })
+    }
+}
+
+exports.auctions = auctions
 exports.activeAuctions = activeAuctions
 exports.app = app;
 exports.io = io;

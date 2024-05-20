@@ -2,7 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const db = require('./app/db')
 const {startBiddingJob, startUpdateDeliveryJob,NotifyConfirmDeliveryJob, cancelDeliveryJob,} = require("./cronjob");
-const {app, server,io} = require("./app/socket/socket");
+const {app, server,io, initializeFunc} = require("./app/socket/socket");
 require('dotenv').config()
 
 // var usersRouter = require('./app/routes/user.routes');
@@ -45,10 +45,12 @@ startUpdateDeliveryJob()
 cancelDeliveryJob()
 NotifyConfirmDeliveryJob()
 
+
 // set port, listen for requests
 const PORT = 8088
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
     console.log(`Server is running on port ${PORT}.`)
+    await initializeFunc()
 })
 
 

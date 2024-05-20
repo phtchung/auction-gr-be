@@ -21,7 +21,10 @@ const Auction = mongoose.model(
                 ref: 'Request'
             },
             auction_name : String,
-            delivery: {type: mongoose.Schema.Types.Mixed},
+            delivery: {
+                type: mongoose.Schema.Types.Mixed,
+                default : {}
+            },
             category_id: {
                 type: mongoose.Schema.Types.ObjectId,
                 ref: 'Category'

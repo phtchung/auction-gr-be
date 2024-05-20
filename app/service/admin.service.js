@@ -2,9 +2,99 @@ const Request = require("../models/request.model");
 const {mongoose} = require("mongoose");
 const Product = require("../models/product.model");
 const Auction = require("../models/auction.model");
+const schedule = require("node-schedule");
+const sse = require("../sse/index")
+const Bid = require("../models/bid.model");
+const User = require("../models/user.model");
+
+exports.endAuctionNormal = async (auctionId,auctions) => {
+    const auc = await Auction.findOne({
+        _id: new mongoose.Types.ObjectId(auctionId),
+        status: 3,
+    });
+    if(auc){
+        let data
+        if (auc?.winner_id && auc?.final_price) {
+            auc.status = 4
+            auc.victory_time = auc.finish_time
+            const temp = new Date(auc.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            auc.delivery = {
+                ...auc.delivery,
+                procedure_complete_time : temp
+            }
+            await auc.save()
+            data = {
+                winner : auc?.winner_id.toString(),
+                final_price : auc?.final_price,
+                url : '/'
+            }
+        }else {
+            auc.status = 10
+            await auc.save()
+
+            data = {
+                winner : null,
+                final_price : null,
+                url : '/'
+            }
+        }
+        sse.send( data, `finishAuction_${auc._id.toString()}`);
+    }
+    delete auctions[auctionId];
+};
 
 
-exports.adminApproveAuction = async (req, res) => {
+exports.endAuctionOnline = async (auctionId ,auctions) => {
+    const auc = await Auction.findOne({
+        _id: new mongoose.Types.ObjectId(auctionId),
+        status: 3,
+    });
+    if(auc){
+        let data
+        const bid = await Bid.find({
+            auction_id: new mongoose.Types.ObjectId(auctionId),
+        }).limit(1)
+            .sort({ bid_time: -1 })
+
+        if (bid.length !== 0){
+            const winner = await User.findOne({
+                username : bid[0].username
+            })
+
+            auc.status = 4
+            auc.victory_time = auc.finish_time
+            const temp = new Date(auc.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            auc.delivery = {
+                ...auc.delivery,
+                procedure_complete_time : temp
+            }
+            auc.final_price = bid[0].bid_price
+            auc.winner_id = winner._id
+            await auc.save()
+            data = {
+                winner : auc?.winner_id.toString(),
+                final_price : auc?.final_price,
+                url : '/'
+            }
+        }else{
+            auc.status = 10
+            await auc.save()
+            data = {
+                winner : null,
+                final_price : null,
+                url : '/'
+            }
+        }
+        sse.send( data, `finishAuctionOnline_${auc._id.toString()}`);
+    }
+    delete auctions[auctionId];
+};
+
+exports.adminApproveAuction = async (req, res , auctions) => {
     try {
         const request_id = req.body?.rq_id
         const request = await Request.findOneAndUpdate({
@@ -15,7 +105,7 @@ exports.adminApproveAuction = async (req, res) => {
                 $set: {
                     status: 2,
                     category_id: new mongoose.Types.ObjectId(req.body?.category),
-                    type_of_auction: req.body?.type_of_auction,
+                    type_of_auction:parseInt(req.body?.type_of_auction),
                     start_time: req.body?.start_time,
                     finish_time: req.body?.finish_time,
                 }
@@ -36,10 +126,10 @@ exports.adminApproveAuction = async (req, res) => {
                 auction_name: request?.request_name,
                 category_id: new mongoose.Types.ObjectId(req.body?.category),
                 status: 2,
-                reserve_price: parseInt(request?.reserve_price),
-                sale_price: parseInt(request?.sale_price),
-                shipping_fee: parseInt(request?.shipping_fee),
-                step_price: parseInt(request?.step_price),
+                reserve_price: request?.reserve_price,
+                sale_price: request?.sale_price,
+                shipping_fee: request?.shipping_fee,
+                step_price: request?.step_price,
                 seller_id: request?.seller_id,
                 type_of_auction: req.body?.type_of_auction,
                 start_time: req.body?.start_time,
@@ -55,9 +145,23 @@ exports.adminApproveAuction = async (req, res) => {
             })
 
             await auction.save();
+
+            const endTime = new Date(auction.finish_time);
+            const auctionId = auction._id.toString()
+            auctions[auctionId] = { time : endTime , job : null };
+
+            if(auction.auction_live === 0){
+                auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                    await endAuctionNormal(auctionId , auctions);
+                });
+            }else {
+                auctions[auctionId].job = schedule.scheduleJob(endTime,async() => {
+                    await endAuctionOnline(auctionId , auctions);
+                });
+            }
+
             return { data: auction, error: false, message: "Tạo phiên đấu giá thành công", statusCode: 200 };
         }
-
     } catch (err) {
         return {
             data: [],
@@ -244,3 +348,91 @@ exports.updateStatusByAdmin = async (req) => {
         };
     }
 }
+
+async function endAuctionNormal(auctionId , auctions) {
+    console.log(`Auction ${auctionId} has ended.`);
+    const auc = await Auction.findOne({
+        _id: new mongoose.Types.ObjectId(auctionId),
+        status: 3,
+    })
+
+    if(auc){
+        let data
+        if (auc?.winner_id && auc?.final_price) {
+            auc.status = 4
+            auc.victory_time = auc.finish_time
+            const temp = new Date(auc.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            auc.delivery = {
+                ...auc.delivery,
+                procedure_complete_time : temp
+            }
+            await auc.save()
+            data = {
+                winner : auc?.winner_id.toString(),
+                final_price : auc?.final_price,
+                url : '/'
+            }
+        }else {
+            auc.status = 10
+            await auc.save()
+
+            data = {
+                winner : null,
+                final_price : null,
+                url : '/'
+            }
+        }
+        sse.send( data, `finishAuction_${auc._id.toString()}`);
+    }
+    delete auctions[auctionId];
+}
+
+async function endAuctionOnline(auctionId , auctions) {
+    const auc = await Auction.findOne({
+        _id: new mongoose.Types.ObjectId(auctionId),
+        status: 3,
+    });
+    if(auc){
+        let data
+        const bid = await Bid.find({
+            auction_id: new mongoose.Types.ObjectId(auctionId),
+        }).limit(1)
+            .sort({ bid_time: -1 })
+
+        if (bid.length !== 0){
+            const winner = await User.findOne({
+                username : bid[0].username
+            })
+
+            auc.status = 4
+            auc.victory_time = auc.finish_time
+            const temp = new Date(auc.finish_time);
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 999);
+            auc.delivery = {
+                ...auc.delivery,
+                procedure_complete_time : temp
+            }
+            auc.final_price = bid[0].bid_price
+            auc.winner_id = winner._id
+            await auc.save()
+            data = {
+                winner : auc?.winner_id.toString(),
+                final_price : auc?.final_price,
+                url : '/'
+            }
+        }else{
+            auc.status = 10
+            await auc.save()
+            data = {
+                winner : null,
+                final_price : null,
+                url : '/'
+            }
+        }
+        sse.send( data, `finishAuctionOnline_${auc._id.toString()}`);
+    }
+    delete auctions[auctionId];
+};
