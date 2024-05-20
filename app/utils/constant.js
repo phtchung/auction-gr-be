@@ -196,3 +196,17 @@ module.exports.getNgayThangNam = () => {
     var nam = today.getFullYear().toString().slice(-2); // Lấy 2 chữ số cuối cùng của năm
     return  nam + ngay + thang ;
 }
+module.exports.parseTime = (dateString) =>{
+    const dateParts = dateString.split('T');
+    const date = dateParts[0].split('-');
+    const time = dateParts[1].split(':');
+
+    const year = parseInt(date[0], 10);
+    const month = parseInt(date[1], 10) - 1; // Tháng bắt đầu từ 0
+    const day = parseInt(date[2], 10);
+    const hours = parseInt(time[0], 10);
+    const minutes = parseInt(time[1], 10);
+    const seconds = parseInt(time[2], 10);
+
+    return {year , month,day,hours,minutes,seconds}
+}
