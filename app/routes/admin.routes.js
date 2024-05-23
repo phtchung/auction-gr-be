@@ -73,4 +73,10 @@ module.exports = function (app) {
 
   app.post('/admin/sendCodeToEmail', [authJwt.verifyToken,authJwt.isAdmin], controller.sendCodeToAnotherEmail)
 
+  app.post('/admin/streamTracking', [authJwt.verifyToken],authJwt.isAdmin, controller.getStreamAuctionTracking)
+
+  app.post('/admin/setUrlStream', [authJwt.verifyToken,authJwt.isAdmin], controller.setUrlStream)
+
+  app.delete('/admin/streamAuction/:id', [authJwt.verifyToken,authJwt.isAdmin], controller.deleteStreamAuction)
+
 }

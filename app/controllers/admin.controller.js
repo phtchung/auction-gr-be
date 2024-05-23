@@ -921,7 +921,8 @@ exports.getUserStreamAuction = async (req, res) => {
         const {inFor, room } = req.query
         let data = []
         let query = {
-            auction_live : 2
+            auction_live : 2,
+            status : {$in : [2,3]}
         }
         //còn thiếu checkck finish time và start time
         let query1 = {}
@@ -1021,6 +1022,121 @@ exports.sendCodeToAnotherEmail = async (req, res) => {
             {email: email, productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
 
         res.status(200).json({message:'Gửi lại email thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+
+exports.getStreamAuctionTracking = async (req, res) => {
+    try {
+        const {state, room } = req.query
+        let query = {
+            auction_live : 2,
+            status : {$in : [2,3]}
+        }
+        if(state){
+            //subcribe
+            if(state === 'S'){
+                query.register_start = {$lt : new Date()}
+                query.register_finish = {$gt : new Date()}
+            }else if(state === 'O'){
+                query.start_time = {$lt : new Date()}
+                query.finish_time = {$gt : new Date()}
+            }else if (state === 'R'){
+                query.register_finish = {$lt : new Date()}
+                query.start_time = {$gt : new Date()}
+            }
+        }else {
+            query.$or = [
+                {
+                    $and: [
+                        { register_start: { $lt: new Date() } },
+                        { register_finish: { $gt: new Date() } }
+                    ]
+                },
+                {
+                    $and: [
+                        { start_time: { $lt: new Date() } },
+                        { finish_time: { $gt: new Date() } }
+                    ]
+                },
+                {
+                    $and: [
+                        { register_finish: { $lt: new Date() } },
+                        { start_time: { $gt: new Date() } }
+                    ]
+                }
+            ];
+        }
+        if(room){
+            query.room_id = { $regex: room, $options: 'i' }
+        }
+
+        const auction = await Auction.find(query)
+            .select('_id url_stream room_id start_time finish_time register_finish code_access status')
+
+        res.status(200).json({auction})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.setUrlStream = async (req, res) => {
+    try {
+        const {url_stream, auctionId} = req.body
+
+        if(!url_stream || !auctionId){
+            return res.status(404).json({message: 'Cài đặt thất bại'})
+        }
+
+        const auc = await Auction.findOneAndUpdate({
+                _id: new mongoose.Types.ObjectId(auctionId)
+            },
+            {
+                $set: {
+                    url_stream : url_stream
+                }
+            }
+        )
+        if(!auc){
+            return res.status(404).json({message: 'Cài đặt thất bại'})
+        }
+        res.status(200).json({message:'Gửi lại email thành công'})
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.deleteStreamAuction = async (req, res) => {
+    try {
+        if(!req.params.id)   {
+            return  res.status(404).json({message : 'Không tìm thấy phiên đấu giá'})
+        }
+
+        const auc = await Auction.findOne({
+            _id :  new mongoose.Types.ObjectId(req.params.id) ,
+        }).select('product_id')
+
+        if(!auc){
+            return  res.status(404).json({message : 'Xóa thất bại'})
+        }
+
+        if(auc && auc.register_finish < new Date() && auc.start_time > new Date() && auc.code_access.length === 0){
+            let rs = await Auction.deleteOne({
+                _id : auc._id
+            })
+            if(rs.deletedCount === 1){
+                await Product.findOneAndDelete({
+                    _id :  auc.product_id
+                })
+                res.status(200).json({message : 'Xóa thành công'})
+            }else {
+                return  res.status(404).json({message : 'Xóa thất bại'})
+            }
+        }
+        return  res.status(404).json({message : 'Xóa thất bại'})
+
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }
