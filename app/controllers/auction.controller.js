@@ -309,7 +309,7 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
         }
 
         const page = parseInt(req.query.page) - 1 || 0
-        const limit = 3
+        const limit = 5
 
         query.status = 3
         query.seller_id = new mongoose.Types.ObjectId(user._id)
@@ -720,12 +720,16 @@ exports.getStandoutProduct = async (req, res) => {
 exports.getRealtimeProduct = async (req, res) => {
     try {
         const  type  = reqConvertType(req.body?.type)
-        const  { category } = req.body.query
+        const  { category,keyword } = req.body.query
         let query = {
             auction_live: 1,
             type_of_auction : {$in : type},
             finish_time: {$gt: new Date(), $exists: true},
             status : 3
+        }
+
+        if(keyword){
+            query.auction_name = { $regex: keyword, $options: 'i' }
         }
         let cateIds
         if (category && category !== '0'){
@@ -988,7 +992,7 @@ exports.getProductsByFilter = async (req, res) => {
         }
 
         const page = parseInt(req.query.page) - 1 || 0
-        const limit = 3
+        const limit = 5
 
         query.status = 3
         if(query.start_time){
@@ -1037,6 +1041,149 @@ exports.getProductsByFilter = async (req, res) => {
         //     }else
         //     products.sort((a, b) => b.count - a.count);
         // }
+        const response = {
+            error:false,
+            total,
+            totalPage,
+            currentPage : page + 1,
+            products
+        }
+        res.status(200).json(response)
+    } catch (error) {
+        res.status(500).json({ message: 'Internal server error' })
+    }
+}
+
+
+exports.getSearchProducts = async (req, res) => {
+    try {
+        let query = {
+            auction_live : 0
+        };
+        let sort = {}
+
+        const {keyword } = req.query
+        if(keyword){
+            query.auction_name = { $regex: keyword, $options: 'i' }
+        }
+
+        //price
+        const {minPrice , maxPrice } = req.query
+        if(minPrice && maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { $and: [{ final_price: { $gt: parseInt(minPrice) } }, { final_price: { $lt: parseInt(maxPrice) } }] }] },
+                { $and: [{ final_price: { $exists: false } }, { $and: [{ reserve_price: { $gt: parseInt(minPrice) } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }] },
+            ]
+        }else if(minPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $gt: parseInt(minPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $gt: parseInt(minPrice) } }] }
+            ]
+        }else if(maxPrice){
+            query.$or = [
+                { $and: [{ final_price: { $exists: true } }, { final_price: { $lt: parseInt(maxPrice) } }] },
+                { $and: [{ final_price: { $exists: false } }, { reserve_price: { $lt: parseInt(maxPrice) } }] }
+            ]
+        }
+
+        // //cate con
+        // if (req.query.subcate) {
+        //     query.category_id = new mongoose.Types.ObjectId(req.query.subcate)
+        // }else {
+        //     const childs = await Categories.find({
+        //         parent : new mongoose.Types.ObjectId(category._id)
+        //     })
+        //     query.category_id = { $in: childs.map(child => child._id)}
+        // }
+
+        // lọc nâng cao
+        if (req.query.advance) {
+            if (Array.isArray(req.query.advance)) {
+                req.query.advance.map((item) => {
+                    parseAdvance(item,query)
+                });
+            } else {
+                parseAdvance(req.query.advance,query)
+            }
+        }
+
+        // lọc sao user
+        if (req.query.rate) {
+            let users
+            if(parseInt(req.query.rate) === -1){
+                users = await User.find({
+                    average_rating :  {$lt : 1}
+                }).select('_id')
+            }else {
+                users = await User.find({
+                    average_rating : {$gt : parseInt(req.query.rate)}
+                }).select('_id')
+            }
+            if(users){
+                query.seller_id = { $in: users.map(user => user._id)}
+            }
+        }
+
+        // trạng thái đã sd hay chưa
+        if (req.query.state) {
+            if (!Array.isArray(req.query.state)) {
+                const products = await Product.find({ is_used: parseInt(req.query.state) }, '_id');
+                const productIds = products.map(product => product._id);
+                if(productIds.length > 0 ){
+                    query.product_id = { $in: productIds };
+                }
+            }
+        }
+
+        if (req.query.sortBy) {
+            const parts = splitString(req.query.sortBy)
+            if(parts[0] !== 'bid_count'){
+                sort[parts[0]] = parts[1]
+            }else {
+                sort['bids'] = parts[1]
+            }
+        }
+
+        const page = parseInt(req.query.page) - 1 || 0
+        const limit = 5
+
+        query.status = 3
+        if(query.start_time){
+            query.start_time.$lt = new Date(Date.now());
+        }else {
+            query.start_time = {
+                $lt: new Date(Date.now())
+            };
+        }
+        if(query.finish_time){
+            query.finish_time.$gt = new Date(Date.now());
+        }else {
+            query.finish_time = {
+                $gt: new Date(Date.now())
+            };
+        }
+
+        const products = await Auction.find(query)
+            .sort(sort)
+            .skip(page*limit)
+            .limit(limit)
+            .populate('product_id','product_name main_image')
+
+        const total = await Auction.countDocuments(query)
+
+        const totalPage = Math.ceil(total / limit)
+
+        if (products.length !== 0) {
+            for (let i = 0; i < products.length; i++) {
+                const count = products[i].bids.length
+                if (count > 0) {
+                    products[i] = {...products[i]._doc, count : count}
+                } else {
+                    products[i] = {...products[i]._doc, count: 0}
+                }
+            }
+        }
+
         const response = {
             error:false,
             total,
@@ -1164,7 +1311,7 @@ exports.getTopBidOfProduct = async (req, res) => {
 exports.getTopBidStream = async (req, res) => {
     try {
         const userId = req.userId
-        const {accessCode ,id: auctionId   } = req.body
+        const {accessCode ,id: auctionId } = req.body
 
         initAuctionSocket(auctionId);
         const auctionNamespace = activeAuctions[auctionId].namespace;
@@ -1177,10 +1324,11 @@ exports.getTopBidStream = async (req, res) => {
             return res.status(404).json({message: 'Mật khẩu không chính xác. Không có quyền truy cập phiên đấu giá này'})
         }
 
-        const product = await Auction.findById(
-            auctionId
-        ).select('step_price reserve_price finish_time type_of_auction')
-            .populate('product_id','main_image')
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(auctionId),
+            status: 3,
+        }).select('step_price url_stream reserve_price shipping_fee finish_time type_of_auction')
+            .populate('product_id')
             .lean()
         let sort = {}
         if(product?.type_of_auction === 1){

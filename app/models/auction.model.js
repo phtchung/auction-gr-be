@@ -67,6 +67,7 @@ const Auction = mongoose.model(
             register_start : Date,
             register_finish : Date,
             room_id : String,
+            url_stream:String,
             code_access: [
                 {
                     type: mongoose.Schema.Types.ObjectId,

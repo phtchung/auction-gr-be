@@ -194,7 +194,7 @@ module.exports.getNgayThangNam = () => {
     var ngay = String(today.getDate()).padStart(2, '0');
     var thang = String(today.getMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0
     var nam = today.getFullYear().toString().slice(-2); // Lấy 2 chữ số cuối cùng của năm
-    return  nam + ngay + thang ;
+    return  nam + thang + ngay  ;
 }
 module.exports.parseTime = (dateString) =>{
     const dateParts = dateString.split('T');

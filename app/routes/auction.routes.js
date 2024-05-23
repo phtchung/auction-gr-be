@@ -47,6 +47,8 @@ module.exports = function (app) {
 
   app.get('/home/category/:id', controller.getProductsByFilter)
 
+  app.get('/search', controller.getSearchProducts)
+
   app.get('/auction/relatedItem/:id', controller.getRalatedProduct)
 
   app.post('/auction/online/bid', [authJwt.verifyToken], controller. createOnlineAuction)
