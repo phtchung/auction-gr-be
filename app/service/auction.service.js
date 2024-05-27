@@ -75,6 +75,99 @@ exports.BuyProduct = async (req, res) => {
     }
 }
 
+exports.CreateBid = async (req) => {
+    try {
+        const userId = req.userId
+        const username = req.username
+        const productId = req.body.productId
+        const winner_id = new mongoose.Types.ObjectId(userId)
+        const bid_price = parseInt(req.body.final_price)
+        if(!productId || !winner_id || !bid_price){
+            return {
+                data: [],
+                error: true,
+                message: 'Trả giá thất bại',
+                statusCode: 404,
+            };
+        }
+
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            status: 3,
+            auction_live : 0,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+            seller_id: {$ne: winner_id},
+            $or: [
+                {final_price: {$lt: parseInt(req.body.final_price)}},
+                {final_price: {$exists: false}},
+            ],
+        })
+
+        if (!product){
+            return {
+                data: [],
+                error: true,
+                message: 'Không tìm thấy sản phẩm đấu giá hoặc giá đấu thấp hơn giá hiện tại.',
+                statusCode: 404,
+            };
+        }
+
+        if(product.sale_price <= bid_price && bid_price > product.final_price){
+            // chuyêển qua mua trực tiếp
+            product.status = 4
+            product.victory_time = new Date()
+            product.final_price =  product.sale_price
+            product.winner_id = winner_id
+            const temp = new Date()
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 0);
+            product.delivery = {
+                ...product.delivery,
+                status : 4,
+                procedure_complete_time : temp
+            }
+
+            const bid = new Bid({
+                auction_id: new mongoose.Types.ObjectId(productId),
+                username: username,
+                bid_price: parseInt(req.body?.final_price),
+                bid_time: new Date(),
+            })
+            if (bid) {
+                product.bids.push(bid._id)
+            }
+            await Promise.all([product.save(), bid.save()]);
+
+            return { data: product, error: false, message: "Thực hiện trả giá thành công", statusCode: 200, notify : 1 };
+        }else{
+            product.final_price = req.body.final_price
+            product.winner_id =  winner_id
+
+            const bid = new Bid({
+                auction_id: new mongoose.Types.ObjectId(productId),
+                username: username,
+                bid_price: parseInt(req.body?.final_price),
+                bid_time: new Date(),
+            })
+
+            if (bid) {
+                product.bids.push(bid._id)
+            }
+            await Promise.all([product.save(), bid.save()]);
+            return { data: product, error: false, message: "Thực hiện trả giá thành công", statusCode: 200 };
+        }
+
+    } catch (err) {
+        return {
+            data: [],
+            error: true,
+            message: " an error occurred",
+            statusCode: 500,
+        };
+    }
+}
+
 exports.finishAuctionOnline = async (req, res) => {
     try {
         const productId = req.body.productId

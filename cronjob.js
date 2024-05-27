@@ -41,8 +41,8 @@ const updateFinishSuccessAuction = async () => {
                 $set: {
                     status: 4,
                     victory_time: "$finish_time",
-                    procedure_complete_time: { $add: ["$finish_time", 2 * 24 * 60 * 60 * 1000] },
-                    isDeliInfor: 0,
+                    'delivery.procedure_complete_time': { $add: ["$finish_time", 2 * 24 * 60 * 60 * 1000] },
+
                 }
             }
         ]
@@ -92,7 +92,7 @@ const cancelDelivery = async () => {
     const rs = await Auction.updateMany(
         {
             status: 4,
-            procedure_complete_time: { $lt : new Date() },
+            'delivery.procedure_complete_time': { $lt : new Date() },
         },
         [
             {
@@ -134,7 +134,7 @@ const NotifyConfirmDelivery = async () => {
     const rs = await Auction.updateMany(
         {
             status: 5,
-            delivery_before: { $lt : new Date() },
+            'delivery.delivery_before': { $lt : new Date() },
         },
         [
             {

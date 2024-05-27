@@ -261,10 +261,17 @@ exports.adminCreateProductAution = async (req, res) => {
     try {
         const seller_id = new mongoose.Types.ObjectId(req.userId)
 
+        const {category ,description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,auction_live,
+            type_of_auction,start_time,finish_time} = req.body
+
+        if(!category || !description || !product_name || !rank || !is_used || !delivery_from || !can_return || !reserve_price || !shipping_fee || !step_price
+            || !auction_live || !type_of_auction || !start_time || !finish_time || start_time > finish_time){
+            return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá'})
+        }
+
         if (!req.files || req.files.length === 0) {
             return res.status(500).send({message: "Please upload at least one file!"});
         }
-
         //Single file
         const uploadMainImagePromise = new Promise((resolve, reject) => {
             const blob = bucket.file('admin' + Date.now()  + req.files['singlefile[]'][0].originalname);
@@ -301,20 +308,18 @@ exports.adminCreateProductAution = async (req, res) => {
                 blobStream.end(file.buffer);
             });
         });
-
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
 
-
         const product = new Product({
-            category_id:new mongoose.Types.ObjectId(req.body?.category),
-            description: req.body?.description,
-            product_name: req.body?.product_name,
-            rank: req.body?.rank,
-            is_used : parseInt(req.body?.is_used),
+            category_id:new mongoose.Types.ObjectId(category),
+            description: description,
+            product_name: product_name,
+            rank: rank,
+            is_used : parseInt(is_used),
             brand:req.body.brand ? req.body.brand : null,
-            delivery_from:req.body?.delivery_from,
-            can_return:parseInt(req.body?.can_return),
+            delivery_from:delivery_from,
+            can_return:parseInt(can_return),
             image_list: imageUrls,
             main_image: main_image,
         })
@@ -322,29 +327,39 @@ exports.adminCreateProductAution = async (req, res) => {
 
         const auction = new Auction({
             product_id : product._id,
-            category_id:new mongoose.Types.ObjectId(req.body?.category),
-            auction_name: req.body?.product_name,
-            reserve_price: parseInt(req.body?.reserve_price),
-            shipping_fee: parseInt(req.body?.shipping_fee),
-            step_price: parseInt(req.body?.step_price),
+            category_id:new mongoose.Types.ObjectId(category),
+            auction_name: product_name,
+            reserve_price: parseInt(reserve_price),
+            shipping_fee: parseInt(shipping_fee),
+            step_price: parseInt(step_price),
             seller_id: seller_id,
             admin_belong: 1,
-            auction_live : parseInt(req.body?.auction_live),
+            auction_live : parseInt(auction_live),
             status: 2,
-            type_of_auction: req.body?.type_of_auction,
-            start_time: req.body?.start_time,
-            finish_time: req.body?.finish_time,
+            type_of_auction: type_of_auction,
+            start_time: start_time,
+            finish_time: finish_time,
             request_time: new Date(),
             bids:[],
         })
 
         if(auction.auction_live === 0){
-            auction.sale_price = parseInt(req.body?.sale_price) || null
+            const {sale_price} = req.body
+            if(!sale_price){
+                return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá'})
+            }else
+            auction.sale_price = parseInt(sale_price)
         }
         if(auction.auction_live === 2){
-            auction.register_start = req.body?.register_start
-            auction.register_finish = req.body?.register_finish
-            auction.deposit_price = req.body?.deposit_price
+            const {register_start,register_finish,deposit_price} = req.body
+
+            if(!register_start || !register_finish || !deposit_price || register_start > register_finish || deposit_price > reserve_price)
+            {
+                return res.status(404).json({message : 'Chưa  đủ thông tin hoặc thông tin không hợp lệ để mở phiên đấu giá'})
+            }
+            auction.register_start = register_start
+            auction.register_finish = register_finish
+            auction.deposit_price = deposit_price
             const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 5)
             auction.room_id = getNgayThangNam() + nanoid()
             auction.code_access = []
