@@ -18,6 +18,19 @@ exports.createRequest = async (req) => {
     try {
         const userId = req.userId
         const seller_id = new mongoose.Types.ObjectId(userId)
+
+        const {description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,auction_live} = req.body
+
+        if(!description || !product_name || !rank || !is_used || !delivery_from || !can_return || !reserve_price || !shipping_fee || !step_price
+            || !auction_live ){
+            return {
+                data: [],
+                error: true,
+                message: "Chưa điền đủ thông tin cần thiết để mở phiên đấu giá!",
+                statusCode: 500,
+            };
+        }
+
         if (!req.files || req.files.length === 0) {
             return {
                 data: [],
@@ -67,13 +80,13 @@ exports.createRequest = async (req) => {
         const imageUrls = results.map(item => item.url);
 
         const product = new Product({
-            description: req.body?.description,
-            product_name: req.body?.product_name,
-            rank: req.body?.rank,
-            is_used : parseInt(req.body?.is_used),
+            description: description,
+            product_name: product_name,
+            rank: rank,
+            is_used : parseInt(is_used),
             brand:req.body?.brand ? req.body.brand : null,
-            delivery_from:req.body?.delivery_from,
-            can_return:parseInt(req.body?.can_return),
+            delivery_from:delivery_from,
+            can_return:parseInt(can_return),
             image_list: imageUrls,
             main_image:main_image,
         })
@@ -81,17 +94,30 @@ exports.createRequest = async (req) => {
 
         const request = new Request({
             product_id : product._id,
-            request_name: req.body?.product_name,
-            reserve_price: parseInt(req.body?.reserve_price),
-            sale_price: req.body?.sale_price ?  parseInt(req.body?.sale_price) : null,
-            shipping_fee: parseInt(req.body?.shipping_fee),
-            step_price: parseInt(req.body?.step_price),
+            request_name: product_name,
+            reserve_price: parseInt(reserve_price),
+            shipping_fee: parseInt(shipping_fee),
+            step_price: parseInt(step_price),
             seller_id: seller_id,
             status: 1,
-            auction_live:parseInt(req.body?.auction_live),
+            auction_live:parseInt(auction_live),
             type_of_auction: 1,
             admin_belong : 0
         })
+
+        if(request.auction_live === 0){
+            const {sale_price} = req.body
+            if(!sale_price || parseInt(sale_price) < request.reserve_price){
+                return {
+                    data: [],
+                    error: true,
+                    message: "Chưa đủ thông tin để tạo phiên đấu giá !",
+                    statusCode: 500,
+                };
+            }else {
+                request.sale_price = parseInt(sale_price)
+            }
+        }
         await request.save();
 
         return { data: request, error: false, message: "success", statusCode: 200 };

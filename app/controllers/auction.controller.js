@@ -11,7 +11,7 @@ const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
 const sse = require("../sse");
-const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline} = require("../service/auction.service");
+const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline, CreateBid} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
@@ -124,52 +124,6 @@ exports.getFullBidOfProduct = async (req, res) => {
     }
 }
 
-exports.createProductBid = async (req, res) => {
-    try {
-        const userId = req.userId
-        const username = req.username
-        const productId = req.body.productId
-        const winner_id = new mongoose.Types.ObjectId(userId)
-
-        const product = await Auction.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(productId),
-                status: 3,
-                start_time: {$lt: new Date()},
-                finish_time: {$gt: new Date()},
-                seller_id: {$ne: winner_id},
-                $or: [
-                    {final_price: {$lt: parseInt(req.body.final_price)}},
-                    {final_price: {$exists: false}},
-                ],
-            },
-            {
-                $set: {
-                    final_price: req.body.final_price,
-                    winner_id: winner_id,
-                }
-            })
-        if (!product) {
-            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá'})
-        } else {
-            const bid = new Bid({
-                auction_id: new mongoose.Types.ObjectId(productId),
-                username: username,
-                bid_price: parseInt(req.body?.final_price),
-                bid_time: new Date(),
-            })
-
-            if (bid) {
-                product.bids.push(bid._id)
-            }
-            await Promise.all([product.save(), bid.save()]);
-        }
-
-        res.status(200).json({message: 'Thực hiện trả giá thành công'})
-    } catch (err) {
-        return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
-    }
-}
-
 exports.getAuctionProductBidCount = async (req, res) => {
     try {
         const Id = req.params.productId
@@ -181,6 +135,29 @@ exports.getAuctionProductBidCount = async (req, res) => {
         res.status(200).json({bidCount: bidCount})
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.CreateBidController = async (req, res) => {
+    const result = await CreateBid(req);
+    res.status(result.statusCode).json(result);
+    if (result.notify) {
+        const data1 = {
+            winner: result.data.winner_id.toString(),
+            final_price: result?.data?.final_price,
+            url: '/',
+        };
+
+        const data = new Notification ( {
+            title : 'Đấu giá thành công',
+            content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+            url :`winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`,
+            type : 1,
+            receiver : [result.data.winner_id],
+        })
+        await data.save()
+        sse.send(data1, `finishAuction_${result.data._id.toString()}`);
+        sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
     }
 }
 
@@ -1223,7 +1200,7 @@ exports.getRalatedProduct = async (req, res) => {
 
 
 // api cho 1 lần trả giá online
-exports.createOnlineAuction = async (req, res) => {
+exports.createRealtimeBid = async (req, res) => {
     try {
         const userId = req.userId
         const username = req.username
@@ -1245,6 +1222,70 @@ exports.createOnlineAuction = async (req, res) => {
 
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
+        }
+
+        const bid = new Bid({
+            auction_id: new mongoose.Types.ObjectId(productId),
+            username: username,
+            bid_price: bid_price,
+            bid_time: new Date(),
+        })
+
+        if(bid){
+            product.bids.push(bid._id)
+        }
+        await Promise.all([product.save(), bid.save()]);
+
+        const new_bid = {
+            id: bid._id,
+            bid_price: bid.bid_price,
+            username: bid.username,
+            bid_time: bid.bid_time,
+        }
+        auctionNamespace.emit(`auction`, new_bid)
+
+        res.status(200).json({message: 'Thực hiện trả giá thành công', new_bid})
+    } catch (err) {
+        return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
+    }
+}
+
+exports.createStreamBid = async (req, res) => {
+    try {
+        const userId = req.userId
+        const username = req.username
+        const winner_id = new mongoose.Types.ObjectId(userId)
+
+        const { productId, accessCode}  = req.body
+        const bid_price = req.body?.final_price
+
+        if(!productId || !accessCode){
+            return res.status(404).json({message: 'Không đủ điều kiện trả giá sản phẩm !'})
+        }
+
+        initAuctionSocket(productId);
+        const auctionNamespace = activeAuctions[productId].namespace;
+
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            status: 3,
+            auction_live: 2,
+            seller_id: {$ne : winner_id},
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+        })
+
+        if (!product) {
+            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
+        }
+        const checkAccessCode = await Registration.findOne({
+            user_id : new mongoose.Types.ObjectId(userId),
+            auction_id :new mongoose.Types.ObjectId(productId),
+            code_access : accessCode
+        })
+
+        if(!checkAccessCode){
+            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá !'})
         }
 
         const bid = new Bid({

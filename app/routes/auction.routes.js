@@ -15,7 +15,7 @@ module.exports = function (app) {
 
   app.get('/auction/fullBidList/:product_id', [authJwt.verifyToken], controller.getFullBidOfProduct)
 
-  app.post('/auction/bid', [authJwt.verifyToken], controller.createProductBid)
+  app.post('/auction/bid', [authJwt.verifyToken], controller.CreateBidController)
 
   app.get('/auction/bidCount/:productId', controller.getAuctionProductBidCount)
 
@@ -51,7 +51,9 @@ module.exports = function (app) {
 
   app.get('/auction/relatedItem/:id', controller.getRalatedProduct)
 
-  app.post('/auction/online/bid', [authJwt.verifyToken], controller. createOnlineAuction)
+  app.post('/auction/online/bid', [authJwt.verifyToken], controller. createRealtimeBid)
+
+  app.post('/auction/stream/bid', [authJwt.verifyToken], controller. createStreamBid)
 
   app.get('/checkoutDeposit/:id',[authJwt.verifyToken],controller.getCheckOutDeposit)
 

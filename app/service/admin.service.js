@@ -97,43 +97,69 @@ exports.endAuctionOnline = async (auctionId ,auctions) => {
 exports.adminApproveAuction = async (req, res , auctions) => {
     try {
         const request_id = req.body?.rq_id
+        const {category ,type_of_auction,start_time,finish_time } = req.body
+
+        if(!category || !type_of_auction || !start_time || !finish_time || start_time > finish_time){
+            return {
+                data: [],
+                error: true,
+                message: "Không đủ thông tin để tạo yêu cầu đấu giá hoặc yêu cầu không hợp lệ",
+                statusCode: 500,
+            };
+        }
+        const rq = await Request.findOne({
+            _id: new mongoose.Types.ObjectId(request_id),
+            status: 1
+        })
+        if (!rq) {
+            return {
+                data: [],
+                error: true,
+                message: "Không tìm thấy yêu cầu đấu giá",
+                statusCode: 500,
+            };
+        }
+        if(parseInt(type_of_auction) === -1 && rq.auction_live === 0){
+            return {
+                data: [],
+                error: true,
+                message: "Yêu cầu đấu giá không hợp lệ",
+                statusCode: 500,
+            };
+        }
         const request = await Request.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(request_id),
-                status: 1
             },
             {
                 $set: {
                     status: 2,
-                    category_id: new mongoose.Types.ObjectId(req.body?.category),
-                    type_of_auction:parseInt(req.body?.type_of_auction),
-                    start_time: req.body?.start_time,
-                    finish_time: req.body?.finish_time,
+                    category_id: new mongoose.Types.ObjectId(category),
+                    type_of_auction:parseInt(type_of_auction),
+                    start_time: start_time,
+                    finish_time: finish_time,
                 }
             })
 
-        if (!request) {
-            return res.status(500).json({message: 'Không tìm thấy yêu cầu đấu giá!'})
-        } else {
-            await Product.findOneAndUpdate({
+        await Product.findOneAndUpdate({
                 _id : request.product_id
             },
-                {
-                    category_id : new mongoose.Types.ObjectId(req.body?.category),
+            {
+                category_id : new mongoose.Types.ObjectId(category),
                 })
 
             const auction = new Auction({
                 request_id: request?._id,
                 auction_name: request?.request_name,
-                category_id: new mongoose.Types.ObjectId(req.body?.category),
+                category_id: new mongoose.Types.ObjectId(category),
                 status: 2,
                 reserve_price: request?.reserve_price,
                 sale_price: request?.sale_price,
                 shipping_fee: request?.shipping_fee,
                 step_price: request?.step_price,
                 seller_id: request?.seller_id,
-                type_of_auction: req.body?.type_of_auction,
-                start_time: req.body?.start_time,
-                finish_time: req.body?.finish_time,
+                type_of_auction: type_of_auction,
+                start_time: start_time,
+                finish_time: finish_time,
                 main_image: request?.main_image,
                 request_time: request?.createdAt,
                 auction_live : request?.auction_live,
@@ -161,7 +187,6 @@ exports.adminApproveAuction = async (req, res , auctions) => {
             }
 
             return { data: auction, error: false, message: "Tạo phiên đấu giá thành công", statusCode: 200 };
-        }
     } catch (err) {
         return {
             data: [],
