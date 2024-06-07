@@ -6,6 +6,8 @@ const schedule = require("node-schedule");
 const sse = require("../sse/index")
 const Bid = require("../models/bid.model");
 const User = require("../models/user.model");
+const {sendEmailAuctionSuccess} = require("../utils/helper");
+const {formatDateTime} = require("../utils/constant");
 
 exports.endAuctionNormal = async (auctionId,auctions) => {
     const auc = await Auction.findOne({
@@ -375,7 +377,7 @@ exports.updateStatusByAdmin = async (req) => {
 }
 
 async function endAuctionNormal(auctionId , auctions) {
-    console.log(`Auction ${auctionId} has ended.`);
+
     const auc = await Auction.findOne({
         _id: new mongoose.Types.ObjectId(auctionId),
         status: 3,
@@ -399,6 +401,14 @@ async function endAuctionNormal(auctionId , auctions) {
                 final_price : auc?.final_price,
                 url : '/'
             }
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(auc.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
+            }
+
         }else {
             auc.status = 10
             await auc.save()

@@ -100,7 +100,9 @@ exports.UserReturnProduct = async (req) => {
     try {
         const userId = req.userId
         const productId = req.body?.id
-        if (!req.files || req.files.length === 0) {
+        const {return_reason,return_reasonQuick} = req.body
+
+        if (!req.files || req.files.length === 0 || !productId || !return_reason || !return_reasonQuick) {
             return {
                 data: [],
                 error: true,
@@ -141,7 +143,8 @@ exports.UserReturnProduct = async (req) => {
                     'delivery.status': 9,
                     'delivery.return_time': new Date(),
                     'delivery.return_image_list': imageUrls,
-                    'delivery.return_reason':req.body?.return_reason,
+                    'delivery.return_reason':return_reason,
+                    'delivery.return_reasonQuick':parseInt(return_reasonQuick),
                 }
             })
         await returnProduct.save();

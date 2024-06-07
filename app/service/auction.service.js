@@ -10,6 +10,9 @@ const CryptoJS = require("crypto-js");
 const axios = require("axios");
 const Bid = require("../models/bid.model");
 const sse = require("../sse");
+const {sendEmailAuctionSuccess} = require("../utils/helper");
+const {formatDateTime} = require("../utils/constant");
+const User = require("../models/user.model");
 require('dotenv').config()
 
 
@@ -55,7 +58,13 @@ exports.BuyProduct = async (req, res) => {
                 product.bids.push(bid._id)
             }
             await Promise.all([product.save(), bid.save()]);
-
+            const user = await User.findOne({
+                _id : winner_id
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
+            }
         }else {
             return {
                 data: [],
@@ -138,6 +147,14 @@ exports.CreateBid = async (req) => {
                 product.bids.push(bid._id)
             }
             await Promise.all([product.save(), bid.save()]);
+            const user = await User.findOne({
+                _id : winner_id
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
+            }
+
 
             return { data: product, error: false, message: "Thực hiện trả giá thành công", statusCode: 200, notify : 1 };
         }else{

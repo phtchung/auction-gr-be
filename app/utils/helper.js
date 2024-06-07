@@ -45,3 +45,35 @@ const sendEmail = async ({email,randomCode, startTime, productName}) => {
 }
 module.exports = sendEmail
 
+module.exports.sendEmailAuctionSuccess = async ({email, productName , url , price , deadline}) => {
+    // send mail with defined transport object
+    const info = await transporter.sendMail({
+        from: 'phamthanhchung2001@gmail.com', // sender address
+        to: email, // list of receivers
+        subject: `Về việc đấu giá thành công sản phẩm ${productName} `, // Subject line
+        text: `Đấu giá thành công sản phẩm ${productName}`, // plain text body
+        html: `<section class="max-w-2xl px-6 py-8 mx-auto bg-white dark:bg-gray-900">
+                <main class="mt-8">
+                    <h2 class="text-gray-700 dark:text-gray-200">Xin chào ${email},</h2>
+                    <p class="mt-2 leading-loose text-gray-600 dark:text-gray-300">
+                        Chúc mừng bạn đấu giá thành công sản phẩm ${productName} của chúng tôi.
+                    </p>
+                    
+                    <p class="mt-2 leading-loose text-gray-600 dark:text-gray-300">
+                        Giá trúng thầu là ${price} VNĐ. Hãy nhanh chóng cập nhật thông tin giao hàng tại 
+                            <a href="${url}" style="color: blue; text-decoration: underline;">${url}</a> 
+                            để có thể nhận hàng sớm nhất bạn nhé!
+                         <br>
+                         Thời gian cập nhật đến hết : <strong>${deadline}</strong>
+                    </p>
+                   
+                    <p class="mt-8 text-gray-600 dark:text-gray-300">
+                        Thanks, <br/>
+                        PTC Auction Team
+                    </p>
+                </main>
+            </section>
+            `
+    })
+    console.log('Message sent: %s', info.messageId)
+}

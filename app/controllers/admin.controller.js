@@ -200,12 +200,12 @@ exports.adminGetRequestDetail = async (req, res) => {
         const request = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
         }).populate('winner_id category_id', 'phone name')
-            .populate('seller_id', 'shop_point average_rating name phone')
+            .populate('seller_id', 'shop_point average_rating name product_done_count phone')
             .populate('product_id')
         if (!request) {
             const newReq = await Request.findOne({
                 _id: new mongoose.Types.ObjectId(requestId)
-            }).populate('seller_id category_id', 'shop_point average_rating name')
+            }).populate('seller_id category_id', 'shop_point product_done_count average_rating phone name')
                 .populate('product_id')
             return res.status(200).json(newReq)
         }

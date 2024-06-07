@@ -61,6 +61,10 @@ const User = mongoose.model(
                 type : Number,
                 default:0
             },
+            receiveAuctionSuccessEmail:{
+                type : Boolean,
+                default : false
+            },
             // số lượng người đánh giá
             rate_count:{
                 type : Number,
