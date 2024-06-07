@@ -64,7 +64,9 @@ exports.getUser = async (req, res) => {
             point: user.point,
             gender: user?.gender,
             date_of_birth: user?.date_of_birth,
-            avatar: user?.avatar
+            avatar: user?.avatar,
+            shop_point : user?.shop_point,
+            receiveAuctionSuccessEmail : user.receiveAuctionSuccessEmail,
         }
 
         res.status(200).json(userWithoutPassword)
@@ -74,14 +76,16 @@ exports.getUser = async (req, res) => {
 }
 
 exports.updateInfo = async (req, res) => {
+    console.log(req.body)
     let userId = req.body.userId
+    let receiveAuctionSuccessEmail  = req.body.receiveAuctionSuccessEmail
+    console.log(receiveAuctionSuccessEmail)
     let birthday = req.body.date_of_birth || null
     let gender = req.body.gender !== undefined ? req.body.gender : null
 
-    console.log(birthday, gender)
-    if (birthday === null && gender === null) {
-        return res.status(400).json({message: 'BAD_REQUEST'})
-    }
+    // if (birthday === null && gender === null) {
+    //     return res.status(400).json({message: 'BAD_REQUEST'})
+    // }
     try {
         const user = await User.findById(userId)
         if (!user) {
@@ -90,9 +94,15 @@ exports.updateInfo = async (req, res) => {
         if (birthday) {
             user.date_of_birth = birthday
         }
+        console.log('LOZ')
         if (gender !== null) {
             user.gender = gender
         }
+        console.log('alo'.receiveAuctionSuccessEmail)
+
+        user.receiveAuctionSuccessEmail = receiveAuctionSuccessEmail
+
+
         await user.save()
 
         return res.status(200).json({message: 'UPDATE_SUCCESS'})
