@@ -11,7 +11,7 @@ const CryptoJS = require('crypto-js'); // npm install crypto-js
 const {v1:uuid} = require('uuid'); // npm install uuid
 const moment = require('moment');
 const sse = require("../sse");
-const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline, CreateBid} = require("../service/auction.service");
+const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline, CreateBid, BuyProductAuctionPriceDown} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
 const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
@@ -20,6 +20,7 @@ const sendEmail = require("../utils/helper");
 const Registration = require("../models/registration.model");
 const Bid = require("../models/bid.model");
 const Message = require("../models/message.model");
+const {sendEmailAuctionSuccess} = require("../utils/helper");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -107,7 +108,6 @@ exports.getBiddingList = async (req, res) => {
 exports.getFullBidOfProduct = async (req, res) => {
     try {
         const productId = req.params.product_id
-
         // phải lấy type của auction
         const fullBidList = await Bid.aggregate([
             {
@@ -158,6 +158,13 @@ exports.CreateBidController = async (req, res) => {
         await data.save()
         sse.send(data1, `finishAuction_${result.data._id.toString()}`);
         sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
+        const user = await User.findOne({
+            _id : new mongoose.Types.ObjectId(result.data.winner_id)
+        })
+        let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+        if(user.receiveAuctionSuccessEmail){
+            await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
+        }
     }
 }
 
@@ -181,6 +188,13 @@ exports.BuyProductController = async (req, res) => {
         await data.save()
         sse.send(data1, `finishAuction_${result.data._id.toString()}`);
         sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
+        const user = await User.findOne({
+            _id : new mongoose.Types.ObjectId(result.data.winner_id)
+        })
+        let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+        if(user.receiveAuctionSuccessEmail){
+            await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
+        }
     }
 }
 
@@ -1211,17 +1225,29 @@ exports.createRealtimeBid = async (req, res) => {
         initAuctionSocket(productId);
         const auctionNamespace = activeAuctions[productId].namespace;
 
+        if(bid_price <= 0){
+            return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
+        }
         const product = await Auction.findOne({
                 _id: new mongoose.Types.ObjectId(productId),
                 status: 3,
-                auction_live: {$in : [1,2]} ,
+                auction_live: 1,
                 seller_id: {$ne : winner_id},
                 start_time: {$lt: new Date()},
                 finish_time: {$gt: new Date()},
-            })
-
+            }).populate('bids')
+        console.log(product)
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
+        }
+        if(product.type_of_auction === 1){
+            if(product.bids[product.bids.length - 1].bid_price >= bid_price){
+                return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
+            }
+        }else if(product.type_of_auction === -1){
+            if(product.bids[product.bids.length - 1].bid_price <= bid_price){
+                return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
+            }
         }
 
         const bid = new Bid({
@@ -1248,6 +1274,36 @@ exports.createRealtimeBid = async (req, res) => {
     } catch (err) {
         return res.status(500).json({message: 'Không đủ điều kiện tham gia đấu giá', err})
     }
+}
+
+exports.PriceDownRealtimeBuy = async (req, res) => {
+    const result = await BuyProductAuctionPriceDown(req);
+        res.status(result.statusCode).json(result);
+        if (!result.error) {
+            const data1 = {
+                winner: result.data.winner_id.toString(),
+                final_price: result?.data?.final_price,
+                url: '/',
+            };
+
+            const data = new Notification ( {
+                title : 'Đấu giá thành công',
+                content : `Bạn vừa đấu giá thành công sản phẩm #${result.data._id.toString()}`,
+                url :`winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`,
+                type : 1,
+                receiver : [result.data.winner_id],
+            })
+            await data.save()
+            sse.send(data1, `finishAuctionOnline_${result.data._id}`);
+            sse.send( data, `buySuccess_${result.data.winner_id.toString()}`);
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(result.data.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
+            }
+        }
 }
 
 exports.createStreamBid = async (req, res) => {
