@@ -43,6 +43,15 @@ exports.endAuctionNormal = async (auctionId,auctions) => {
             }
         }
         sse.send( data, `finishAuction_${auc._id.toString()}`);
+        if(auc.status === 4 ){
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(auc.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
+            }
+        }
     }
     delete auctions[auctionId];
 };
@@ -92,6 +101,15 @@ exports.endAuctionOnline = async (auctionId ,auctions) => {
             }
         }
         sse.send( data, `finishAuctionOnline_${auc._id.toString()}`);
+        if(auc.status === 4 ){
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(auc.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
+            }
+        }
     }
     delete auctions[auctionId];
 };
@@ -401,13 +419,6 @@ async function endAuctionNormal(auctionId , auctions) {
                 final_price : auc?.final_price,
                 url : '/'
             }
-            const user = await User.findOne({
-                _id : new mongoose.Types.ObjectId(auc.winner_id)
-            })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
-            if(user.receiveAuctionSuccessEmail){
-                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
-            }
 
         }else {
             auc.status = 10
@@ -420,6 +431,15 @@ async function endAuctionNormal(auctionId , auctions) {
             }
         }
         sse.send( data, `finishAuction_${auc._id.toString()}`);
+        if(auc.status === 4 ){
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(auc.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
+            }
+        }
     }
     delete auctions[auctionId];
 }
@@ -468,6 +488,15 @@ async function endAuctionOnline(auctionId , auctions) {
             }
         }
         sse.send( data, `finishAuctionOnline_${auc._id.toString()}`);
+        if(auc.status === 4 ){
+            const user = await User.findOne({
+                _id : new mongoose.Types.ObjectId(auc.winner_id)
+            })
+            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            if(user.receiveAuctionSuccessEmail){
+                await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
+            }
+        }
     }
     delete auctions[auctionId];
 };

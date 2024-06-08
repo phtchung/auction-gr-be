@@ -53,6 +53,8 @@ module.exports = function (app) {
 
   app.post('/auction/online/bid', [authJwt.verifyToken], controller. createRealtimeBid)
 
+  app.post('/auction/online/buy', [authJwt.verifyToken], controller. PriceDownRealtimeBuy)
+
   app.post('/auction/stream/bid', [authJwt.verifyToken], controller. createStreamBid)
 
   app.get('/checkoutDeposit/:id',[authJwt.verifyToken],controller.getCheckOutDeposit)

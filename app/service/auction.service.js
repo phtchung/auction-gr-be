@@ -58,13 +58,54 @@ exports.BuyProduct = async (req, res) => {
                 product.bids.push(bid._id)
             }
             await Promise.all([product.save(), bid.save()]);
-            const user = await User.findOne({
-                _id : winner_id
-            })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
-            if(user.receiveAuctionSuccessEmail){
-                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
+        }else {
+            return {
+                data: [],
+                error: true,
+                message: "Không đủ điều kiện mua sản phẩm",
+                statusCode: 404,
+            };
+        }
+        return { data: product, error: false, message: "Thực hiện trả giá thành công", statusCode: 200 };
+    } catch (err) {
+        return {
+            data: [],
+            error: true,
+            message: " an error occurred",
+            statusCode: 500,
+        };
+    }
+}
+
+exports.BuyProductAuctionPriceDown = async (req, res) => {
+    try {
+        const userId = req.userId
+        const username = req.username
+        const productId = req.body.productId
+        const winner_id = new mongoose.Types.ObjectId(userId)
+
+        const product = await Auction.findOne({
+            _id: new mongoose.Types.ObjectId(productId),
+            status: 3,
+            start_time: {$lt: new Date()},
+            finish_time: {$gt: new Date()},
+            seller_id: {$ne: winner_id},
+            type_of_auction: -1,
+        })
+        if (product) {
+            product.status = 4
+            product.victory_time = new Date()
+            product.final_price =  req.body.final_price
+            product.winner_id = winner_id
+            const temp = new Date()
+            temp.setDate(temp.getDate() + 2);
+            temp.setHours(23, 59, 59, 0);
+            product.delivery = {
+                ...product.delivery,
+                status : 4,
+                procedure_complete_time : temp
             }
+            await Promise.all([product.save()]);
         }else {
             return {
                 data: [],
@@ -147,15 +188,6 @@ exports.CreateBid = async (req) => {
                 product.bids.push(bid._id)
             }
             await Promise.all([product.save(), bid.save()]);
-            const user = await User.findOne({
-                _id : winner_id
-            })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${productId}?status=4`
-            if(user.receiveAuctionSuccessEmail){
-                await sendEmailAuctionSuccess({ email: user.email , productName : product?.product_id?.product_name , url, price : product.final_price , deadline : formatDateTime(product.delivery.procedure_complete_time)  })
-            }
-
-
             return { data: product, error: false, message: "Thực hiện trả giá thành công", statusCode: 200, notify : 1 };
         }else{
             product.final_price = req.body.final_price

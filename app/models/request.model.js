@@ -28,7 +28,7 @@ const Request = mongoose.model(
             shipping_fee: Number,
             auction_live: {
                 type: Number,
-                enum: [0, 1],
+                enum: [0, 1, 2],
             },
             reason: String,
             reject_time: Date,
