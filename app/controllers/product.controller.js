@@ -11,22 +11,37 @@ const {updateByWinner, UserReturnProduct} = require("../service/product.service"
 const {da} = require("@faker-js/faker");
 const Notification = require('../models/notification.model')
 const Auction = require("../models/auction.model");
+const Review = require("../models/review.model");
 
 
 exports.getAuctionHistory = async (req, res) => {
     try {
         const userId = req.userId
-        const status = req.body.status
-        const products = await Auction.find(
-            {winner_id: new mongoose.Types.ObjectId(userId), status})
+        const page = parseInt(req.query.page)
+        const LIMIT = 5;
+        const query = {}
+        query.status = 8
+        query.winner_id = new mongoose.Types.ObjectId(userId)
+        const { keyword } = req.query
+        if(keyword){
+            query.auction_name = { $regex: keyword, $options: 'i' }
+        }
+        const countItem = await Auction.countDocuments(query)
+
+        const products = await Auction.find(query)
             .sort({ updatedAt: -1 })
-            .select('product_name rank reserve_price final_price product_delivery main_image is_review review_before')
+            .skip(page * LIMIT)
+            .select('product_name rank reserve_price final_price delivery main_image is_review review_before')
             .lean()
             .populate('seller_id')
             .populate('product_id')
 
-
-        res.status(200).json(products)
+        return res.status(200).json(
+            {
+                data : products,
+                currentPage : page ,
+                nextPage :  page + LIMIT < countItem ? page + 1 : null
+            })
     } catch (error) {
         res.status(500).json({message: 'Internal server error' + error})
     }
@@ -154,7 +169,7 @@ exports.getWinOrderDetail = async (req, res) => {
         const product = await Auction.findOne({
             winner_id: new mongoose.Types.ObjectId(userId),
             _id: new mongoose.Types.ObjectId(productId)
-        }).populate('seller_id category_id', 'name phone')
+        }).populate('seller_id category_id', 'name username phone')
             .populate('product_id')
         if (!product){
             return res.status(404).json('Không tìm thấy sản phẩm')
@@ -310,6 +325,10 @@ exports.getReqOrderDetail = async (req, res) => {
             }).populate('seller_id category_id', 'name phone')
                 .populate('product_id')
         }
+        const review = await Review.findOne({
+            auction_id :  new mongoose.Types.ObjectId(Id)
+        })
+        product = {...product._doc, review}
 
         res.status(200).json(product)
     } catch (err) {

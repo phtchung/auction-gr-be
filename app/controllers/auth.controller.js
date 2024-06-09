@@ -8,30 +8,32 @@ var bcrypt = require('bcryptjs')
 
 exports.signup = async (req, res) => {
     try {
-        const {name, username, email, password, phone} = req.body;
+        const {name, username, email, password, phone,confirm_password} = req.body;
 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
-            return res.status(400).json({error: "Invalid email format"});
+            return res.status(400).json({error: "Email chưa đúng định dạng"});
         }
 
         const existingUser = await User.findOne({username});
         if (existingUser) {
-            return res.status(400).json({error: "Username is already taken"});
+            return res.status(400).json({error: "Username đã được sử dụng"});
         }
 
         const existingEmail = await User.findOne({email});
         if (existingEmail) {
-            return res.status(400).json({error: "Email is already taken"});
+            return res.status(400).json({error: "Email đã được sử dụng"});
         }
 
         const existingPhone = await User.findOne({phone});
         if (existingPhone) {
-            return res.status(400).json({error: "Phone number is already taken"});
+            return res.status(400).json({error: "Số điện thoại đã được sử dụng"});
         }
-
+        if (confirm_password !== password) {
+            return res.status(400).json({error: "Mật khẩu chưa trùng khớp "});
+        }
         if (password.length < 6) {
-            return res.status(400).json({error: "Password must be at least 6 characters long"});
+            return res.status(400).json({error: "Mật khẩu phải nhiều hơn 6 kí tự"});
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -84,7 +86,7 @@ exports.signin = async (req, res) => {
         const isPasswordCorrect = bcrypt.compareSync(password, user?.password || "")
 
         if (!user || !isPasswordCorrect) {
-            return res.status(400).json({error: "Invalid username or password"});
+            return res.status(400).json({error: "Sai thông tin đăng nhập"});
         }
 
         const token = jwt.sign({id: user._id, username: user.username}, config.secret, {

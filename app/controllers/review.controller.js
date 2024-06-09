@@ -53,6 +53,7 @@ exports.UserReviewProduct = async (req, res) => {
             {
                 $set: {
                     is_review: 1,
+                    'delivery.review_time': new Date(),
                 }
             })
 
