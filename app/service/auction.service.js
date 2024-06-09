@@ -313,6 +313,16 @@ exports.finishAuctionProduct = async (req, res) => {
 exports.checkoutProduct = async (req, res) => {
     try {
         const userId = req.userId
+        const { payment_method ,product_id , address, phone , name} = req.body
+        console.log(payment_method ,product_id , address, phone , name)
+        if( !product_id || !address || !phone || !name ){
+            return {
+                data: [],
+                error: true,
+                message: "Chưa điền đủ thông tin",
+                statusCode: 500,
+            };
+        }
         let product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(req.body.product_id),
             winner_id: new mongoose.Types.ObjectId(userId)

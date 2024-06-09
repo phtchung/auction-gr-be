@@ -737,7 +737,7 @@ exports.getRealtimeProduct = async (req, res) => {
             .find(query)
             .skip(page*limit)
             .limit(limit)
-            .select('_id finish_time')
+            .select('_id finish_time type_of_auction')
             .populate('product_id','product_name main_image')
 
         const total = await Auction.countDocuments(query)
@@ -1236,20 +1236,19 @@ exports.createRealtimeBid = async (req, res) => {
                 start_time: {$lt: new Date()},
                 finish_time: {$gt: new Date()},
             }).populate('bids')
-        console.log(product)
+
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
         }
-        if(product.type_of_auction === 1){
+        if(product.type_of_auction === 1 && product.bids.length !== 0){
             if(product.bids[product.bids.length - 1].bid_price >= bid_price){
                 return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
             }
-        }else if(product.type_of_auction === -1){
+        }else if(product.type_of_auction === -1 && product.bids.length !== 0){
             if(product.bids[product.bids.length - 1].bid_price <= bid_price){
                 return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
             }
         }
-
         const bid = new Bid({
             auction_id: new mongoose.Types.ObjectId(productId),
             username: username,
