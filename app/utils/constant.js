@@ -141,10 +141,28 @@ module.exports.formatDateTime = (inputDateString) => {
     const hours = formatDateComponent(inputDate.getHours());
     const minutes = formatDateComponent(inputDate.getMinutes());
     const seconds = formatDateComponent(inputDate.getSeconds());
-
     return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
+module.exports.canBidByPoint = (userPoints, productPrice) => {
+    if (userPoints < 200) {
+        return productPrice < 2000000;
+    } else if (userPoints < 350) {
+        return productPrice < 5000000;
+    } else {
+        return productPrice >= 5000000;
+    }
+}
+
+module.exports.getMinimumPoints = (productPrice) =>  {
+    if (productPrice < 2000000) {
+        return 0;
+    } else if (productPrice < 5000000) {
+        return 201;
+    } else {
+        return 351;
+    }
+}
 module.exports.splitString = (str) => {
     var dashIndex = str.indexOf('-');
 

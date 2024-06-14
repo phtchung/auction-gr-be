@@ -11,7 +11,7 @@ const axios = require("axios");
 const Bid = require("../models/bid.model");
 const sse = require("../sse");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
-const {formatDateTime} = require("../utils/constant");
+const {formatDateTime, canBidByPoint, getMinimumPoints} = require("../utils/constant");
 const User = require("../models/user.model");
 require('dotenv').config()
 
@@ -34,7 +34,23 @@ exports.BuyProduct = async (req, res) => {
                 {final_price: {$exists: false}},
             ],
         })
+
         if (product) {
+            let {point , premium} = await User.findOne({
+                _id : winner_id,
+            }).select('point premium')
+
+            if(!premium){
+                if(!canBidByPoint(point, product.reserve_price)){
+                    return {
+                        data: [],
+                        error: true,
+                        message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                        statusCode: 404,
+                    };
+                }
+            }
+
             product.status = 4
             product.victory_time = new Date()
             product.final_price =  req.body.final_price
@@ -93,6 +109,21 @@ exports.BuyProductAuctionPriceDown = async (req, res) => {
             type_of_auction: -1,
         })
         if (product) {
+            let {point , premium} = await User.findOne({
+                _id : winner_id,
+            }).select('point premium')
+
+            if(!premium){
+                if(!canBidByPoint(point, product.reserve_price)){
+                    return {
+                        data: [],
+                        error: true,
+                        message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                        statusCode: 404,
+                    };
+                }
+            }
+
             product.status = 4
             product.victory_time = new Date()
             product.final_price =  req.body.final_price
@@ -158,9 +189,23 @@ exports.CreateBid = async (req) => {
             return {
                 data: [],
                 error: true,
-                message: 'Không tìm thấy sản phẩm đấu giá hoặc giá đấu thấp hơn giá hiện tại.',
+                message: 'Không đủ điều kiện tham gia đấu giá hoặc giá đấu thấp hơn giá hiện tại.',
                 statusCode: 404,
             };
+        }
+        let {point , premium} = await User.findOne({
+            _id : winner_id,
+        }).select('point premium')
+
+        if(!premium){
+            if(!canBidByPoint(point, product.reserve_price)){
+                return {
+                    data: [],
+                    error: true,
+                    message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                    statusCode: 404,
+                };
+            }
         }
 
         if(product.sale_price <= bid_price && bid_price > product.final_price){

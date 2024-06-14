@@ -55,6 +55,10 @@ const User = mongoose.model(
                 type : Boolean,
                 default : true
             },
+            premium: {
+                type : Boolean,
+                default : false
+            },
             address: String,
             avatar:String,
             product_done_count: {

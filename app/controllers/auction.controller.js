@@ -14,7 +14,7 @@ const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline, CreateBid, BuyProductAuctionPriceDown} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
-const {splitString, parseAdvance, formatDateTime, reqConvertType} = require("../utils/constant");
+const {splitString, parseAdvance, formatDateTime, reqConvertType, canBidByPoint, getMinimumPoints} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 const sendEmail = require("../utils/helper");
 const Registration = require("../models/registration.model");
@@ -1239,6 +1239,15 @@ exports.createRealtimeBid = async (req, res) => {
 
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
+        }
+        let {point , premium} = await User.findOne({
+            _id : winner_id,
+        }).select('point premium')
+
+        if(!premium){
+            if(!canBidByPoint(point, product.reserve_price)){
+                return res.status(404).json({message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `})
+            }
         }
         if(product.type_of_auction === 1 && product.bids.length !== 0){
             if(product.bids[product.bids.length - 1].bid_price >= bid_price){
