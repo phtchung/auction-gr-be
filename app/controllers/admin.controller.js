@@ -264,9 +264,9 @@ exports.adminCreateProductAution = async (req, res) => {
         const {category ,description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,auction_live,
             type_of_auction,start_time,finish_time} = req.body
 
-        if(!category || !description || !product_name || !rank || !is_used || !delivery_from || !can_return || !reserve_price || !shipping_fee || !step_price
+        if(!category || !description || !product_name || !rank  || !delivery_from || !can_return || !reserve_price || !shipping_fee || !step_price
             || !auction_live || !type_of_auction || !start_time || !finish_time || start_time > finish_time){
-            return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá'})
+            return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá 1'})
         }
 
         if (!req.files || req.files.length === 0) {
@@ -346,16 +346,16 @@ exports.adminCreateProductAution = async (req, res) => {
         if(auction.auction_live === 0){
             const {sale_price} = req.body
             if(!sale_price){
-                return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá'})
+                return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá 2'})
             }else
             auction.sale_price = parseInt(sale_price)
         }
         if(auction.auction_live === 2){
             const {register_start,register_finish,deposit_price} = req.body
 
-            if(!register_start || !register_finish || !deposit_price || register_start > register_finish || deposit_price > reserve_price)
+            if(!register_start || !register_finish || !deposit_price || register_start > register_finish || parseInt(deposit_price) > parseInt(reserve_price))
             {
-                return res.status(404).json({message : 'Chưa  đủ thông tin hoặc thông tin không hợp lệ để mở phiên đấu giá'})
+                return res.status(404).json({message : 'Chưa  đủ thông tin hoặc thông tin không hợp lệ để mở phiên đấu giá 3'})
             }
             auction.register_start = register_start
             auction.register_finish = register_finish
