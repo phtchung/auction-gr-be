@@ -14,13 +14,16 @@ const sse = require("../sse");
 const {BuyProduct, finishAuctionProduct, checkoutProduct, finishAuctionOnline, CreateBid, BuyProductAuctionPriceDown} = require("../service/auction.service");
 const Notification = require('../models/notification.model')
 const main = require('../../server')
-const {splitString, parseAdvance, formatDateTime, reqConvertType, canBidByPoint, getMinimumPoints} = require("../utils/constant");
+const {splitString, parseAdvance, formatDateTime, reqConvertType, canBidByPoint, getMinimumPoints,
+    checkByAuctionDeposit, checkPackageRegis, isValidCardNumber, isValidExpiration, isValidCVC, isValidCardName
+} = require("../utils/constant");
 const {initAuctionSocket, activeAuctions} = require("../socket/socket");
 const sendEmail = require("../utils/helper");
 const Registration = require("../models/registration.model");
 const Bid = require("../models/bid.model");
 const Message = require("../models/message.model");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
+const https = require("https");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -1240,15 +1243,16 @@ exports.createRealtimeBid = async (req, res) => {
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
         }
-        let {point , premium} = await User.findOne({
+        let {point , auction_deposit} = await User.findOne({
             _id : winner_id,
-        }).select('point premium')
+        }).select('point auction_deposit')
 
-        if(!premium){
+        if(!checkByAuctionDeposit(auction_deposit , product.reserve_price)){
             if(!canBidByPoint(point, product.reserve_price)){
-                return res.status(404).json({message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `})
+                return res.status(404).json({message: `Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy. Tham khảo tính năng đăng ký cọc để tham gia đấu giá nhé! `})
             }
         }
+
         if(product.type_of_auction === 1 && product.bids.length !== 0){
             if(product.bids[product.bids.length - 1].bid_price >= bid_price){
                 return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
@@ -1718,6 +1722,228 @@ exports.checkoutDeposit = async (req, res) => {
                 res.status(200).json({message: 'Thành công', payUrl: returnUrl});
             }
         }
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.checkoutPackageRegistration = async (req, res) => {
+    try {
+        const userId = req.userId
+        const {payment_method} = req.body
+        const data1 = req.body.data
+
+        if (!data1 || !payment_method){
+            return res.status(404).json({ message: 'Vui lòng điền đầy đủ thông tin.' })
+        }
+
+        const user = await User.findOne({
+            _id: new mongoose.Types.ObjectId(userId),
+        }).populate('auction_deposit')
+
+        const {auction_deposit} = user
+        if (auction_deposit){
+            return res.status(404).json({ message: 'Bạn đã đăng ký mức cọc đấu giá rồi.' })
+        }
+        if (!checkPackageRegis(data1.level, data1.deposit)){
+            return res.status(404).json({ message: 'Không tồn tại mức đăng ký này.' })
+        }
+
+        //  bằng 1 : momo , bằng 2 : zalopay
+        if (payment_method === 1) {
+
+            var partnerCode = "MOMO"
+            // var accessKey = process.env.accessKey;
+            // var secretkey = process.env.
+            var accessKey = 'F8BBA842ECF85';
+            var secretKey = 'K951B6PE1waDMi640xX08PD3vg6EkVlz';
+            // chuỗi ngẫu nhiên để phân biệt cái request
+            var requestId = partnerCode + new Date().getTime() + "id";
+            // mã đặt đơn
+            var orderId = new Date().getTime() + ":0123456778";
+            //
+            var orderInfo = "Thanh toán phí đăng ký cọc đấu giá mức" + data1.level;
+            // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
+            var redirectUrl = `http://localhost:5173/confirmRegistration`
+            // process.env.redirectUrlDeposit;
+            // Trang thank you
+            var ipnUrl = process.env.ipnUrl
+            // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
+            var amount = data1.deposit * 1000
+            // var requestType = "payWithATM";
+            // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
+            var requestType = "captureWallet";
+            var extraData = "hello"; //pass empty value if your merchant does not have stores
+
+            var rawSignature = "accessKey=" + accessKey + "&amount=" + amount + "&extraData=" + extraData + "&ipnUrl="
+                + ipnUrl + "&orderId=" + orderId + "&orderInfo=" + orderInfo + "&partnerCode=" + partnerCode + "&redirectUrl="
+                + redirectUrl + "&requestId=" + requestId + "&requestType=" + requestType
+
+            var signature = crypto
+                .createHmac('sha256', secretKey)
+                .update(rawSignature)
+                .digest("hex")
+
+            const requestBody = JSON.stringify({
+                partnerCode: partnerCode,
+                accessKey: accessKey,
+                requestId: requestId,
+                amount: amount,
+                orderId: orderId,
+                orderInfo: orderInfo,
+                redirectUrl: redirectUrl,
+                ipnUrl: ipnUrl,
+                extraData: extraData,
+                requestType: requestType,
+                signature: signature,
+                lang: "vi",
+            })
+
+            const https = require("https");
+            const options = {
+                hostname: "test-payment.momo.vn",
+                port: 443,
+                path: "/v2/gateway/api/create",
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(requestBody),
+                },
+            };
+            const reqq = https.request(options, resMom => {
+                var url = ''
+                var rsCode
+                console.log(`Status: ${resMom.statusCode}`);
+                resMom.setEncoding("utf8");
+                // trả về body là khi mình call momo
+                resMom.on("data", (body) => {
+                    let parsedBody = JSON.parse(body)
+                    url += parsedBody.payUrl
+                    rsCode = parsedBody.resultCode
+                    // resultCode = parsedBody.resultCode
+                    // url dẫn đến tranh toán của momo
+                    // res.json({ payUrl: url, rsCode: rsCode });
+                });
+                resMom.on("end", async () => {
+                    if (rsCode === 0) {
+                        user.auction_deposit = data1.deposit
+                        await user.save()
+                    }
+                    res.json({message: 'Thành công', payUrl: url});
+                    console.log("No more data in response.update xong");
+                });
+            });
+            reqq.on("error", (e) => {
+                console.log(`problem with request: ${e.message}`);
+                return res.status(500).json({error: 'Internal Server Error'});
+            })
+            console.log("Sending....");
+            reqq.write(requestBody);
+            reqq.end();
+        }
+            else if(payment_method === 2){
+                const config = {
+                    appid: process.env.appid,
+                    key1: process.env.key1,
+                    key2: process.env.key2,
+                    endpoint: process.env.endpoint,
+                };
+                const embeddata = {
+                    "promotioninfo":"","merchantinfo":"embeddata123",
+                    "redirecturl": `http://localhost:5173/confirmRegistration`,
+                    // process.env.redirectUrl
+                };
+
+                const order = {
+                    appid: config.appid,
+                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
+                    appuser: "demo",
+                    apptime: Date.now(), // miliseconds
+                    item: "[]",
+                    embeddata: JSON.stringify(embeddata),
+                    amount: data1.deposit* 1000,
+                    description: `Auction - Thanh toán đăng ký đấu giá mức `+data1.level,
+                    bankcode:"zalopayapp",
+                };
+
+                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
+                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
+
+                var returnUrl = ''
+                var returncode = 0
+                await axios.post(config.endpoint, null, { params: order })
+                    .then(res => {
+                        console.log(res.data);
+                        returnUrl += res.data.orderurl
+                        returncode +=res.data.returncode
+                    })
+                    .catch(err => console.log(err));
+
+                if(returncode === 1){
+                    user.auction_deposit = data1.deposit
+                    await user.save()
+                }
+                res.status(200).json({message: 'Thành công', payUrl: returnUrl});
+            }
+    } catch (err) {
+        return res.status(500).json({message: 'DATABASE_ERROR', err})
+    }
+}
+
+exports.withdrawPackageRegistration = async (req, res) => {
+    try {
+        const userId = req.userId
+        const {cardNumber, expiration, cvc , cardName} = req.body
+
+        if (!cardNumber || !expiration || !cvc || !cardName){
+            return res.status(404).json({ message: 'Vui lòng điền đầy đủ thông tin để nhận hoàn đăng ký.' })
+        }
+        if (!isValidCardNumber(cardNumber)) {
+            return res.status(404).json({ message: 'Số thẻ không hợp lệ. Số thẻ phải là 16 chữ số.' })
+        }
+        if (!isValidExpiration(expiration)) {
+            return res.status(404).json({ message: 'Ngày hết hạn không hợp lệ.' })
+        }
+        if (!isValidCVC(cvc)) {
+            return res.status(404).json({ message: 'Mã CVC không hợp lệ. CVC phải là 3 chữ số.' })
+        }
+        if (!isValidCardName(cardName)) {
+            return res.status(404).json({ message: 'Tên trên thẻ không hợp lệ.' })
+        }
+
+        const user = await User.findOne({
+            _id: new mongoose.Types.ObjectId(userId),
+        }).populate('auction_deposit')
+
+        const {auction_deposit} = user
+        if (!auction_deposit){
+            return res.status(404).json({ message: 'Bạn chưa đăng ký mức cọc đấu giá nào.' })
+        }
+
+        const AucW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: 4
+        })
+
+        const DlvW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: {$in: [5, 6, 7]}
+        })
+
+        const ReW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: 9
+        })
+
+        if(AucW || DlvW || ReW){
+            return res.status(404).json({ message: 'Bạn chưa hoàn tất các phiên đấu giá hiện tại.' })
+        }
+
+        user.auction_deposit = 0
+        await user.save()
+
+        return res.status(200).json({ message: 'Yêu cầu hoàn tiền thành công.', returnUrl : 'http://localhost:5173/confirmWithdrawRegistration' })
+
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
     }

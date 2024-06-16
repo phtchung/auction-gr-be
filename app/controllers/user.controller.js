@@ -4,6 +4,7 @@ const Role = require('../models/role.model')
 const Notification = require("../models/notification.model");
 const Conversation = require("../models/conversation.model");
 const Message = require("../models/message.model");
+const Auction = require("../models/auction.model");
 
 exports.allAccess = (req, res) => {
     res.status(200).send('Public Content.')
@@ -28,15 +29,38 @@ exports.getMyProfile = async (req, res) => {
         // Lấy danh sách các vai trò của người dùng
         const roles = await Role.find({_id: {$in: user.roles}})
 
+
+        const AucW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: 4
+        })
+
+        const DlvW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: {$in: [5, 6, 7]}
+        })
+
+        const ReW = await Auction.countDocuments({
+            winner_id: new mongoose.Types.ObjectId(userId),
+            status: 9
+        })
+
+        let checkBidding = 0
+        if(AucW || DlvW || ReW){
+            checkBidding = 1
+        }
+
         // Loại bỏ mật khẩu khỏi thông tin người dùng
-        const userWithoutPassword = {
+        const userData = {
             _id: user._id,
             email: user.email,
             name: user.name,
-            roles: roles.map((role) => role.name)
+            roles: roles.map((role) => role.name),
+            auction_deposit : user.auction_deposit,
+            checkBidding : checkBidding
         }
 
-        res.status(200).json(userWithoutPassword)
+        res.status(200).json(userData)
     } catch (error) {
         console.error(error)
         res.status(500).json({message: 'Internal server error'})

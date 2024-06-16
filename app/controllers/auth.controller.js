@@ -102,7 +102,8 @@ exports.signin = async (req, res) => {
             email: user.email,
             name : user.name,
             roles: authorities,
-            accessToken : token
+            accessToken : token,
+            deposit : user.auction_deposit,
         });
 
     } catch (error) {
