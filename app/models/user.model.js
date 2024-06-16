@@ -55,9 +55,9 @@ const User = mongoose.model(
                 type : Boolean,
                 default : true
             },
-            premium: {
-                type : Boolean,
-                default : false
+            auction_deposit: {
+                type : Number,
+                default : 0
             },
             address: String,
             avatar:String,

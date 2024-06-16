@@ -63,6 +63,10 @@ module.exports = function (app) {
 
   app.post('/auction/checkoutDeposit', [authJwt.verifyToken], controller.checkoutDeposit)
 
+  app.post('/auction/checkoutRegistrationDeposit', [authJwt.verifyToken], controller.checkoutPackageRegistration)
+
+  app.post('/auction/withdrawRegistrationDeposit', [authJwt.verifyToken], controller.withdrawPackageRegistration)
+
   app.post('/auction/productRealtime',[authJwt.verifyToken], controller.getRealtimeProduct)
 
   app.post('/auction/productStream',[authJwt.verifyToken], controller.getStreamProduct)

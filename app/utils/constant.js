@@ -145,24 +145,83 @@ module.exports.formatDateTime = (inputDateString) => {
 };
 
 module.exports.canBidByPoint = (userPoints, productPrice) => {
-    if (userPoints < 200) {
-        return productPrice < 2000000;
-    } else if (userPoints < 350) {
-        return productPrice < 5000000;
+    if (userPoints <= 200) {
+        return productPrice <= 500000;
+    } else if (userPoints <= 350) {
+        return productPrice <= 3000000;
     } else {
-        return productPrice >= 5000000;
+        return productPrice > 0;
     }
 }
 
+module.exports.checkByAuctionDeposit = (deposit, productPrice) => {
+    if (deposit === 50) {
+        return productPrice <= 2000000;
+    } else if (deposit === 100) {
+        return productPrice <= 5000000;
+    } else if (deposit === 200) {
+        return productPrice <= 15000000;
+    } else if (deposit === 300) {
+        return productPrice > 0
+    }else return false
+}
+
 module.exports.getMinimumPoints = (productPrice) =>  {
-    if (productPrice < 2000000) {
+    if (productPrice < 500000) {
         return 0;
-    } else if (productPrice < 5000000) {
+    } else if (productPrice < 3000000) {
         return 201;
     } else {
         return 351;
     }
 }
+
+module.exports.checkPackageRegis = (level , deposit) =>  {
+    switch (level){
+        case 1 :
+            return deposit === 50;
+        case 2 :
+            return deposit === 100;
+        case 3:
+            return deposit === 200;
+        case 4:
+            return deposit === 300;
+        default :
+            return  false
+    }
+}
+
+module.exports.isValidCardName = (cardName) => {
+    return /^[a-zA-Z\s]+$/.test(cardName) && cardName.length >= 2;
+}
+
+module.exports.isValidCVC = (cvc) =>  {
+    return /^\d{3}$/.test(cvc);
+}
+
+module.exports.isValidExpiration = (expiration) =>  {
+    if (!/^\d{2}\/\d{2}$/.test(expiration)) {
+        return false;
+    }
+
+    const [month, year] = expiration.split('/').map(num => parseInt(num, 10));
+    if (month < 1 || month > 12) {
+        return false;
+    }
+
+    const currentYear = new Date().getFullYear() % 100; // Lấy 2 chữ số cuối của năm hiện tại
+    const currentMonth = new Date().getMonth() + 1; // Tháng hiện tại (0-11)
+
+    if (year < currentYear || (year === currentYear && month < currentMonth)) {
+        return false;
+    }
+
+    return true;
+}
+module.exports.isValidCardNumber = (cardNumber) => {
+    return /^\d{16}$/.test(cardNumber);
+}
+
 module.exports.splitString = (str) => {
     var dashIndex = str.indexOf('-');
 

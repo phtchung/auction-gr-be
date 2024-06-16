@@ -11,7 +11,7 @@ const axios = require("axios");
 const Bid = require("../models/bid.model");
 const sse = require("../sse");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
-const {formatDateTime, canBidByPoint, getMinimumPoints} = require("../utils/constant");
+const {formatDateTime, canBidByPoint, getMinimumPoints, checkByAuctionDeposit} = require("../utils/constant");
 const User = require("../models/user.model");
 require('dotenv').config()
 
@@ -36,16 +36,17 @@ exports.BuyProduct = async (req, res) => {
         })
 
         if (product) {
-            let {point , premium} = await User.findOne({
-                _id : winner_id,
-            }).select('point premium')
 
-            if(!premium){
+            let {point , auction_deposit} = await User.findOne({
+                _id : winner_id,
+            }).select('point auction_deposit')
+
+            if(!checkByAuctionDeposit(auction_deposit , product.reserve_price)){
                 if(!canBidByPoint(point, product.reserve_price)){
                     return {
                         data: [],
                         error: true,
-                        message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                        message: `Điểm số tích lũy không đủ. Tham khảo tính năng đăng ký cọc để tham gia đấu giá nhé! `,
                         statusCode: 404,
                     };
                 }
@@ -109,16 +110,15 @@ exports.BuyProductAuctionPriceDown = async (req, res) => {
             type_of_auction: -1,
         })
         if (product) {
-            let {point , premium} = await User.findOne({
+            let {point , auction_deposit} = await User.findOne({
                 _id : winner_id,
-            }).select('point premium')
-
-            if(!premium){
+            }).select('point auction_deposit')
+            if(!checkByAuctionDeposit(auction_deposit , product.reserve_price)){
                 if(!canBidByPoint(point, product.reserve_price)){
                     return {
                         data: [],
                         error: true,
-                        message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                        message: `Điểm số tích lũy không đủ. Tham khảo tính năng đăng ký cọc để tham gia đấu giá nhé!`,
                         statusCode: 404,
                     };
                 }
@@ -193,16 +193,15 @@ exports.CreateBid = async (req) => {
                 statusCode: 404,
             };
         }
-        let {point , premium} = await User.findOne({
+        let {point , auction_deposit} = await User.findOne({
             _id : winner_id,
-        }).select('point premium')
-
-        if(!premium){
+        }).select('point auction_deposit')
+        if(!checkByAuctionDeposit(auction_deposit , product.reserve_price)){
             if(!canBidByPoint(point, product.reserve_price)){
                 return {
                     data: [],
                     error: true,
-                    message: `Điểm số tích lũy không đủ. Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy để tham gia đấu giá `,
+                    message: `Điểm số tích lũy không đủ. Tham khảo tính năng đăng ký cọc để tham gia đấu giá nhé! `,
                     statusCode: 404,
                 };
             }
