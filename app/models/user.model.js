@@ -17,20 +17,6 @@ const User = mongoose.model(
                 type: String,
                 required: true,
             },
-            following: [
-                {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "User",
-                    default: [],
-                },
-            ],
-            followers: [
-                {
-                    type: mongoose.Schema.Types.ObjectId,
-                    ref: "User",
-                    default: [],
-                },
-            ],
             username: {
                 type: String,
                 required: true,

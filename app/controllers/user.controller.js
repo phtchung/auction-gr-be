@@ -88,7 +88,6 @@ exports.getUser = async (req, res) => {
             point: user.point,
             gender: user?.gender,
             date_of_birth: user?.date_of_birth,
-            avatar: user?.avatar,
             shop_point : user?.shop_point,
             receiveAuctionSuccessEmail : user.receiveAuctionSuccessEmail,
         }

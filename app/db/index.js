@@ -1,9 +1,8 @@
 const db = require('../models')
-const dbConfig = require('../config/db.config')
 const Role = db.role
 
 db.mongoose
-  .connect('mongodb://127.0.0.1:27017/Auction', {
+  .connect('mongodb+srv://phamthanhchung186:123456a%40A@cluster0.efknctp.mongodb.net/auction', {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
