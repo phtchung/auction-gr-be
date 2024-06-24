@@ -29,7 +29,7 @@ exports.signup = async (req, res) => {
         if (existingPhone) {
             return res.status(400).json({error: "Số điện thoại đã được sử dụng"});
         }
-        if (confirm_password !== password) {
+        if (confirm_password.trimEnd() !== password.trimEnd()) {
             return res.status(400).json({error: "Mật khẩu chưa trùng khớp "});
         }
         if (password.length < 6) {
@@ -37,14 +37,14 @@ exports.signup = async (req, res) => {
         }
 
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password.trimEnd(), salt);
 
         const role = await Role.findOne({name: 'user'})
 
         const newUser = new User({
             email,
             username,
-            name,
+            name : name.trimEnd(),
             phone,
             password: hashedPassword,
             roles: [role._id]
@@ -64,8 +64,6 @@ exports.signup = async (req, res) => {
                 username: newUser.username,
                 email: newUser.email,
                 phone: newUser.phone,
-                followers: newUser.followers,
-                following: newUser.following,
                 accessToken : token,
             });
         } else {

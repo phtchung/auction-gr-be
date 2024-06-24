@@ -66,7 +66,6 @@ exports.getBiddingList = async (req, res) => {
         ])
 
         const products = biddingInfor.length > 0 ? biddingInfor.map((item) => item.auction_id) : []
-
         const query = {}
         query.status = 3
         query._id = {$in: products}
@@ -82,11 +81,9 @@ exports.getBiddingList = async (req, res) => {
             .populate('product_id','product_name rank main_image')
             .populate('seller_id', 'name average_rating')
             .lean()
-
         if(data.length === 0){
             return res.status(200).json({data : [], currentPage : page , nextPage : null })
         }
-
         const mergedArray = data.map((product) => {
             const correspondingBid = biddingInfor.find((bid) => bid.auction_id.equals(product._id))
 
@@ -112,12 +109,20 @@ exports.getFullBidOfProduct = async (req, res) => {
     try {
         const productId = req.params.product_id
         // phải lấy type của auction
+        const auction = await Auction.findOne({
+            _id : new mongoose.Types.ObjectId(productId)
+        }).select('type_of_auction')
+        let sort = {}
+        if (auction.type_of_auction === 1){
+            sort.createdAt = -1
+        }else sort.createdAt = 1
+
         const fullBidList = await Bid.aggregate([
             {
                 $match: {auction_id: new mongoose.Types.ObjectId(productId)}
             },
             {
-                $sort: {createdAt: -1}
+                $sort: sort
             },
         ])
 
@@ -647,7 +652,7 @@ exports.getTopSeller = async (req, res) => {
             },
             { $limit: 6 },
             { $sort: { 'product_done_count': -1 } },// Giới hạn chỉ lấy 6 kết quả đầu tiên
-            { $project: { _id: 1,username:1, completed_orders: 1, name : 1,product_done_count: 1,average_rating:1,avatar: 1 } } // Chỉ lấy ra user_id và số đơn hàng hoàn thành
+            { $project: { _id: 1,username:1, completed_orders: 1, name : 1,product_done_count: 1,average_rating:1 } } // Chỉ lấy ra user_id và số đơn hàng hoàn thành
         ])
 
         res.status(200).json( users)
@@ -1341,7 +1346,7 @@ exports.createStreamBid = async (req, res) => {
             seller_id: {$ne : winner_id},
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
-        })
+        }).populate('bids')
 
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
@@ -1354,6 +1359,15 @@ exports.createStreamBid = async (req, res) => {
 
         if(!checkAccessCode){
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá !'})
+        }
+        if(product.type_of_auction === 1 && product.bids.length !== 0){
+            if(product.bids[product.bids.length - 1].bid_price >= bid_price){
+                return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
+            }
+        }else if(product.type_of_auction === -1 && product.bids.length !== 0){
+            if(product.bids[product.bids.length - 1].bid_price <= bid_price){
+                return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
+            }
         }
 
         const bid = new Bid({
@@ -1439,19 +1453,13 @@ exports.getTopBidStream = async (req, res) => {
         }).select('step_price url_stream reserve_price shipping_fee finish_time type_of_auction')
             .populate('product_id')
             .lean()
-        let sort = {}
-        if(product?.type_of_auction === 1){
-            sort.createdAt = -1
-        }else if(product?.type_of_auction === -1){
-            sort.createdAt = 1
-        }
 
         const topBidList = await Bid.aggregate([
             {
                 $match: {auction_id: new mongoose.Types.ObjectId(auctionId)}
             },
             {
-                $sort: sort
+                $sort: {createdAt: -1}
             },
             {
                 $limit: 3
@@ -1974,7 +1982,7 @@ exports.checkPWStreamRoom = async (req, res) => {
             auction_live: 2,
             status: 3,
             start_time: {$lt: new Date()},
-        }).select('_id')
+        }).select('_id type_of_auction')
         if(!product){
             return res.status(404).json({message : 'Phiên đấu giá chưa bắt đầu !'})
         }
@@ -1983,11 +1991,11 @@ exports.checkPWStreamRoom = async (req, res) => {
         var accessCode = nanoid()
         checkRegis.code_access = accessCode
         await checkRegis.save()
-
+        let type = product.type_of_auction === 1 ? 'biddingStream' : 'biddingStreamDown'
         const response = {
             status : 200,
             message: 'Xác thực thành công!',
-            pathUrl: `http://localhost:5173/biddingStream/${product._id.toString()}?accessCode=${accessCode}`,
+            pathUrl: `http://localhost:5173/${type}/${product._id.toString()}?accessCode=${accessCode}`,
             error: false
         }
         res.status(200).json(response);
