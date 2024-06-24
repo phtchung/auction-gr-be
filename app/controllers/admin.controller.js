@@ -843,7 +843,6 @@ exports.getCategories = async (req, res) => {
     try {
          const categories = await Categories.find({
              parent: {$eq: null, $exists: true},
-
             })
         res.status(200).json({categories})
     } catch (error) {

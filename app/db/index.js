@@ -1,8 +1,9 @@
 const db = require('../models')
 const Role = db.role
+require('dotenv').config()
 
 db.mongoose
-  .connect('mongodb+srv://phamthanhchung186:123456a%40A@cluster0.efknctp.mongodb.net/auction', {
+  .connect(process.env.MONGOURL, {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
