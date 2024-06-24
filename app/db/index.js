@@ -2,7 +2,6 @@ const db = require('../models')
 const Role = db.role
 require('dotenv').config()
 
-
 db.mongoose
   .connect(process.env.MONGOURL, {
     useNewUrlParser: true,
