@@ -5,6 +5,7 @@ const Auction = require("../models/auction.model");
 const schedule = require("node-schedule");
 const sse = require("../sse/index")
 const Bid = require("../models/bid.model");
+require('dotenv').config()
 const User = require("../models/user.model");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
 const {formatDateTime} = require("../utils/constant");
@@ -47,7 +48,7 @@ exports.endAuctionNormal = async (auctionId,auctions) => {
             const user = await User.findOne({
                 _id : new mongoose.Types.ObjectId(auc.winner_id)
             })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
             if(user.receiveAuctionSuccessEmail){
                 await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
             }
@@ -105,7 +106,7 @@ exports.endAuctionOnline = async (auctionId ,auctions) => {
             const user = await User.findOne({
                 _id : new mongoose.Types.ObjectId(auc.winner_id)
             })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
             if(user.receiveAuctionSuccessEmail){
                 await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
             }
@@ -435,7 +436,7 @@ async function endAuctionNormal(auctionId , auctions) {
             const user = await User.findOne({
                 _id : new mongoose.Types.ObjectId(auc.winner_id)
             })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
             if(user.receiveAuctionSuccessEmail){
                 await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
             }
@@ -492,7 +493,7 @@ async function endAuctionOnline(auctionId , auctions) {
             const user = await User.findOne({
                 _id : new mongoose.Types.ObjectId(auc.winner_id)
             })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
+            let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${auc._id.toString()}?status=4`
             if(user.receiveAuctionSuccessEmail){
                 await sendEmailAuctionSuccess({ email: user.email , productName : auc?.auction_name , url, price : auc.final_price , deadline : formatDateTime(auc.delivery.procedure_complete_time)})
             }
