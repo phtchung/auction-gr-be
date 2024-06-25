@@ -1346,7 +1346,7 @@ exports.createStreamBid = async (req, res) => {
             seller_id: {$ne : winner_id},
             start_time: {$lt: new Date()},
             finish_time: {$gt: new Date()},
-        }).populate('bids')
+        }).populate('bids min_price')
 
         if (!product) {
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá '})
@@ -1360,12 +1360,13 @@ exports.createStreamBid = async (req, res) => {
         if(!checkAccessCode){
             return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá !'})
         }
+
         if(product.type_of_auction === 1 && product.bids.length !== 0){
             if(product.bids[product.bids.length - 1].bid_price >= bid_price){
                 return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
             }
         }else if(product.type_of_auction === -1 && product.bids.length !== 0){
-            if(product.bids[product.bids.length - 1].bid_price <= bid_price){
+            if(product.bids[product.bids.length - 1].bid_price <= bid_price || bid_price < product.min_price ){
                 return res.status(404).json({message: 'Giá đưa ra không hợp lệ'})
             }
         }
@@ -1450,7 +1451,7 @@ exports.getTopBidStream = async (req, res) => {
         const product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(auctionId),
             status: 3,
-        }).select('step_price url_stream reserve_price shipping_fee finish_time type_of_auction')
+        }).select('step_price url_stream min_price reserve_price shipping_fee finish_time type_of_auction')
             .populate('product_id')
             .lean()
 

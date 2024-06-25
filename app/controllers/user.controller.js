@@ -5,6 +5,7 @@ const Notification = require("../models/notification.model");
 const Conversation = require("../models/conversation.model");
 const Message = require("../models/message.model");
 const Auction = require("../models/auction.model");
+const Request = require("../models/request.model");
 
 exports.allAccess = (req, res) => {
     res.status(200).send('Public Content.')
@@ -45,8 +46,38 @@ exports.getMyProfile = async (req, res) => {
             status: 9
         })
 
+        const count_penR = await Request.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: 1
+        })
+
+        const count_appR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: 2
+        })
+
+        const count_bidR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: { $in: [3, 4] },
+        })
+
+        const count_sucR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: 5
+        })
+
+        const count_cfR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: 6
+        })
+
+        const count_dlvR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            status: 7
+        })
+
         let checkBidding = 0
-        if(AucW || DlvW || ReW){
+        if( AucW || DlvW || ReW || count_penR || count_appR || count_dlvR || count_cfR || count_sucR || count_bidR ){
             checkBidding = 1
         }
 
