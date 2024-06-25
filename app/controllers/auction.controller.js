@@ -169,7 +169,7 @@ exports.CreateBidController = async (req, res) => {
         const user = await User.findOne({
             _id : new mongoose.Types.ObjectId(result.data.winner_id)
         })
-        let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+        let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
         if(user.receiveAuctionSuccessEmail){
             await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
         }
@@ -199,7 +199,7 @@ exports.BuyProductController = async (req, res) => {
         const user = await User.findOne({
             _id : new mongoose.Types.ObjectId(result.data.winner_id)
         })
-        let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+        let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
         if(user.receiveAuctionSuccessEmail){
             await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
         }
@@ -1316,7 +1316,7 @@ exports.PriceDownRealtimeBuy = async (req, res) => {
             const user = await User.findOne({
                 _id : new mongoose.Types.ObjectId(result.data.winner_id)
             })
-            let url = `http://localhost:5173/winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
+            let url = `${process.env.SERVER}winOrderTracking/winOrderDetail/${result.data._id.toString()}?status=4`
             if(user.receiveAuctionSuccessEmail){
                 await sendEmailAuctionSuccess({ email: user.email , productName : result.data?.auction_name , url, price : result.data.final_price , deadline : formatDateTime(result.data.delivery.procedure_complete_time)  })
             }
@@ -1574,7 +1574,7 @@ exports.checkoutDeposit = async (req, res) => {
                 //
                 var orderInfo = "Thanh toán sản phẩm "+ product?.product_id?.product_name;
                 // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
-                var redirectUrl = `http://localhost:5173/confirm/${product._id}`
+                var redirectUrl = `${process.env.SERVER}confirm/${product._id}`
                     // process.env.redirectUrlDeposit;
                 // Trang thank you
                 var ipnUrl = process.env.ipnUrl
@@ -1679,7 +1679,7 @@ exports.checkoutDeposit = async (req, res) => {
                 };
                 const embeddata = {
                     "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": `http://localhost:5173/confirm/${product._id}`,
+                    "redirecturl": `${process.env.SERVER}confirm/${product._id}`,
                     // process.env.redirectUrl
                 };
 
@@ -1773,7 +1773,7 @@ exports.checkoutPackageRegistration = async (req, res) => {
             //
             var orderInfo = "Thanh toán phí đăng ký cọc đấu giá mức" + data1.level;
             // cung cấp họ về một cái pages sau khi thanh toán sẽ trở về trang nớ
-            var redirectUrl = `http://localhost:5173/confirmRegistration`
+            var redirectUrl = `${process.env.SERVER}confirmRegistration`
             // process.env.redirectUrlDeposit;
             // Trang thank you
             var ipnUrl = process.env.ipnUrl
@@ -1859,7 +1859,7 @@ exports.checkoutPackageRegistration = async (req, res) => {
                 };
                 const embeddata = {
                     "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": `http://localhost:5173/confirmRegistration`,
+                    "redirecturl": `${process.env.SERVER}confirmRegistration`,
                     // process.env.redirectUrl
                 };
 
@@ -1951,7 +1951,7 @@ exports.withdrawPackageRegistration = async (req, res) => {
         user.auction_deposit = 0
         await user.save()
 
-        return res.status(200).json({ message: 'Yêu cầu hoàn tiền thành công.', returnUrl : 'http://localhost:5173/confirmWithdrawRegistration' })
+        return res.status(200).json({ message: 'Yêu cầu hoàn tiền thành công.', returnUrl : `${process.env.SERVER}confirmWithdrawRegistration` })
 
     } catch (err) {
         return res.status(500).json({message: 'DATABASE_ERROR', err})
@@ -1996,7 +1996,7 @@ exports.checkPWStreamRoom = async (req, res) => {
         const response = {
             status : 200,
             message: 'Xác thực thành công!',
-            pathUrl: `http://localhost:5173/${type}/${product._id.toString()}?accessCode=${accessCode}`,
+            pathUrl: `${process.env.SERVER}${type}/${product._id.toString()}?accessCode=${accessCode}`,
             error: false
         }
         res.status(200).json(response);
