@@ -43,6 +43,7 @@ const Auction = mongoose.model(
             step_price: Number,
             final_price: Number,
             shipping_fee: Number,
+            min_price : Number,
             type_of_auction: {
                 type: Number,
                 enum: [-1, 1],

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const {format} = require("util");
 const Request = require("../models/request.model");
 const Product = require("../models/product.model");
+const User = require("../models/user.model");
 require('dotenv').config()
 
 
@@ -19,6 +20,19 @@ exports.createRequest = async (req) => {
         const userId = req.userId
         const seller_id = new mongoose.Types.ObjectId(userId)
 
+        const  user = await User.findOne({
+            _id : seller_id
+        }).select('auction_deposit')
+
+        if( !user || !user.auction_deposit ){
+            return {
+                data: [],
+                error: true,
+                message: "Phải đăng kí cọc để mở phiên đấu giá!",
+                statusCode: 500,
+            };
+        }
+
         const {description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,auction_live} = req.body
 
         if(!description || !product_name || !rank || !is_used || !delivery_from || !can_return || !reserve_price || !shipping_fee || !step_price
@@ -30,6 +44,8 @@ exports.createRequest = async (req) => {
                 statusCode: 500,
             };
         }
+
+
 
         if (!req.files || req.files.length === 0) {
             return {
