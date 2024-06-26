@@ -23,7 +23,7 @@ exports.createRequest = async (req) => {
         const  user = await User.findOne({
             _id : seller_id
         }).select('auction_deposit')
-
+        console.log(user , user.auction_deposit)
         if( !user || !user.auction_deposit ){
             return {
                 data: [],
@@ -92,6 +92,8 @@ exports.createRequest = async (req) => {
             });
         });
 
+        console.log('aaaaa')
+
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
 
@@ -141,7 +143,7 @@ exports.createRequest = async (req) => {
         return {
             data: [],
             error: true,
-            message: "DATABASE_ERROR!",
+            message: err,
             statusCode: 500,
         };
     }
