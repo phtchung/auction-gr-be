@@ -45,8 +45,6 @@ exports.createRequest = async (req) => {
             };
         }
 
-
-
         if (!req.files || req.files.length === 0) {
             return {
                 data: [],
@@ -74,6 +72,8 @@ exports.createRequest = async (req) => {
         const rs = await uploadMainImagePromise;
         const main_image = rs.url
 
+
+        console.log('bbbbbbbb')
         //multifile
         const uploadPromises = req.files['files[]'].map(file => {
             const blob = bucket.file(  Date.now()+ userId + file.originalname);
@@ -140,6 +140,7 @@ exports.createRequest = async (req) => {
 
         return { data: request, error: false, message: "success", statusCode: 200 };
     } catch (err) {
+        console.log(err)
         return {
             data: [],
             error: true,
