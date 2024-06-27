@@ -1451,7 +1451,7 @@ exports.getTopBidStream = async (req, res) => {
         const product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(auctionId),
             status: 3,
-        }).select('step_price url_stream min_price reserve_price shipping_fee finish_time type_of_auction')
+        }).select('step_price url_stream min_price room_id reserve_price shipping_fee finish_time type_of_auction')
             .populate('product_id')
             .lean()
 
@@ -1466,6 +1466,7 @@ exports.getTopBidStream = async (req, res) => {
                 $limit: 3
             }
         ])
+
 
         const highest_price = topBidList.length === 0 ? product.reserve_price : topBidList[0].bid_price
         return res.status(200).json({list : topBidList, product , highest_price, type_of_auction : product.type_of_auction })

@@ -6,7 +6,6 @@ const Product = require("../models/product.model");
 const User = require("../models/user.model");
 require('dotenv').config()
 
-
 exports.createRequest = async (req) => {
     let projectId = process.env.PROJECT_ID // Get this from Google Cloud
     let keyFilename = 'key.json'
@@ -23,7 +22,7 @@ exports.createRequest = async (req) => {
         const  user = await User.findOne({
             _id : seller_id
         }).select('auction_deposit')
-        console.log(user , user.auction_deposit)
+
         if( !user || !user.auction_deposit ){
             return {
                 data: [],
@@ -72,8 +71,6 @@ exports.createRequest = async (req) => {
         const rs = await uploadMainImagePromise;
         const main_image = rs.url
 
-
-        console.log('bbbbbbbb')
         //multifile
         const uploadPromises = req.files['files[]'].map(file => {
             const blob = bucket.file(  Date.now()+ userId + file.originalname);
@@ -91,8 +88,6 @@ exports.createRequest = async (req) => {
                 blobStream.end(file.buffer);
             });
         });
-
-        console.log('aaaaa')
 
         const results = await Promise.all(uploadPromises);
         const imageUrls = results.map(item => item.url);
@@ -140,7 +135,6 @@ exports.createRequest = async (req) => {
 
         return { data: request, error: false, message: "success", statusCode: 200 };
     } catch (err) {
-        console.log(err)
         return {
             data: [],
             error: true,

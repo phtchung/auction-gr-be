@@ -337,8 +337,8 @@ exports.adminCreateProductAution = async (req, res) => {
             auction_live : parseInt(auction_live),
             status: 2,
             type_of_auction: type_of_auction,
-            start_time: start_time,
-            finish_time: finish_time,
+            start_time: new Date(start_time),
+            finish_time: new Date(finish_time),
             request_time: new Date(),
             bids:[],
         })
@@ -358,10 +358,10 @@ exports.adminCreateProductAution = async (req, res) => {
             {
                 return res.status(404).json({message : 'Chưa  đủ thông tin hoặc thông tin không hợp lệ để mở phiên đấu giá 3'})
             }
-            auction.register_start = register_start
-            auction.register_finish = register_finish
-            auction.deposit_price = deposit_price
-            auction.min_price = min_price
+            auction.register_start = new Date(register_start)
+            auction.register_finish = new Date(register_finish)
+            auction.deposit_price = parseInt(deposit_price)
+            auction.min_price = parseInt(min_price)
             const nanoid = customAlphabet('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', 5)
             auction.room_id = getNgayThangNam() + nanoid()
             auction.code_access = []
@@ -402,7 +402,7 @@ exports.adminCancelProduct = async (req, res) => {
             {
                 $set: {
                     status: 11,
-                    cancel_time: cancel_time,
+                    cancel_time: new Date(cancel_time),
                 }
             })
 
