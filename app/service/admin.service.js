@@ -156,8 +156,8 @@ exports.adminApproveAuction = async (req, res , auctions) => {
                     status: 2,
                     category_id: new mongoose.Types.ObjectId(category),
                     type_of_auction:parseInt(type_of_auction),
-                    start_time: new Date(start_time),
-                    finish_time: new Date(finish_time),
+                    start_time: new Date(new Date(start_time).getTime() - 7 * 60 * 60 * 1000),
+                    finish_time: new Date(new Date(finish_time).getTime() - 7 * 60 * 60 * 1000),
                 }
             })
 
