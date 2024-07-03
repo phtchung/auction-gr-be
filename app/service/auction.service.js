@@ -358,7 +358,7 @@ exports.checkoutProduct = async (req, res) => {
     try {
         const userId = req.userId
         const { payment_method ,product_id , address, phone , name} = req.body
-        console.log(payment_method ,product_id , address, phone , name)
+
         if( !product_id || !address || !phone || !name ){
             return {
                 data: [],
@@ -497,38 +497,48 @@ exports.checkoutProduct = async (req, res) => {
 
             else if(req.body?.payment_method === 2){
                 const config = {
-                    appid: process.env.appid,
-                    key1: process.env.key1,
-                    key2: process.env.key2,
-                    endpoint: process.env.endpoint,
-                };
-                const embeddata = {
-                    "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": process.env.redirectUrl
+                    app_id: process.env.app_id,
+                    key1: process.env.key1_new,
+                    key2: process.env.key2_new,
+                    endpoint: process.env.endpoint_new,
                 };
 
+                const embed_data = { "redirecturl": process.env.redirectUrl};
+                const items = [{}];
+                const transID = Math.floor(Math.random() * 1000000);
                 const order = {
-                    appid: config.appid,
-                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
-                    appuser: "demo",
-                    apptime: Date.now(), // miliseconds
-                    item: "[]",
-                    embeddata: JSON.stringify(embeddata),
+                    app_id: config.app_id,
+                    app_trans_id: `${moment().format('YYMMDD')}_${transID}`, // translation missing: vi.docs.shared.sample_code.comments.app_trans_id
+                    app_user: "user123",
+                    app_time: Date.now(), // miliseconds
+                    item: JSON.stringify(items),
+                    embed_data: JSON.stringify(embed_data),
                     amount: product.final_price + product.shipping_fee,
                     description: `Auction - Thanh toán cho sản phẩm ${product?.product_id?.product_name}`,
-                    bankcode:"zalopayapp",
+                    bank_code: "zalopayapp",
                 };
 
-                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
-                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
-
+                // const order = {
+                //     app_id: config.appid,
+                //     app_trans_id: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
+                //     app_user: "ZaloPayDemo",
+                //     app_time: Date.now(), // miliseconds
+                //     item: "[]",
+                //     embed_data:  "{\"preferred_payment_method\":[\"vietqr\"]}",
+                //     callback_url: "https://example.com/zalopay-callback",
+                //     amount: product.final_price + product.shipping_fee,
+                //     description: `Auction - Thanh toán cho sản phẩm ${product?.product_id?.product_name}`,
+                //     bankcode:"",
+                // };
+                const data = config.app_id + "|" + order.app_trans_id + "|" + order.app_user + "|" + order.amount + "|" + order.app_time + "|" + order.embed_data + "|" + order.item;
+                order.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
                 var returnUrl = ''
                 var returncode = 0
                 await axios.post(config.endpoint, null, { params: order })
                     .then(res => {
                         console.log(res.data);
-                        returnUrl += res.data.orderurl
-                        returncode +=res.data.returncode
+                        returnUrl += res.data.order_url
+                        returncode +=res.data.return_code
                     })
                     .catch(err => console.log(err));
 

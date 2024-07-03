@@ -408,7 +408,6 @@ exports.checkoutProductController = async (req, res) => {
     const result = await checkoutProduct(req);
     // const { error, message, statusCode, payUrl } = result;
     // const newRs = { error, message, statusCode, payUrl };
-    console.log('rs',result);
     res.status(result.statusCode).json(result);
     if (!result.error) {
         const temp = new Date()

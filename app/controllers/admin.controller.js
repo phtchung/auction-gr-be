@@ -24,6 +24,7 @@ const Auction = require("../models/auction.model");
 const Registration = require("../models/registration.model");
 const sendEmail = require("../utils/helper");
 const {auctions} = require("../socket/socket");
+const Review = require("../models/review.model");
 
 
 exports.adminBoard = (req, res) => {
@@ -197,7 +198,7 @@ exports.adminGetRequestDetail = async (req, res) => {
     try {
         const requestId = req.params.requestId
 
-        const request = await Auction.findOne({
+        let request = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(requestId)
         }).populate('winner_id category_id', 'phone name')
             .populate('seller_id', 'shop_point average_rating name product_done_count phone')
@@ -209,6 +210,11 @@ exports.adminGetRequestDetail = async (req, res) => {
                 .populate('product_id')
             return res.status(200).json(newReq)
         }
+
+        const review = await Review.findOne({
+            auction_id :  new mongoose.Types.ObjectId(requestId)
+        })
+        request = {...request._doc, review}
 
             return res.status(200).json(request)
     } catch (err) {
@@ -261,10 +267,10 @@ exports.adminCreateProductAution = async (req, res) => {
     try {
         const seller_id = new mongoose.Types.ObjectId(req.userId)
 
-        const {category ,description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,min_price,auction_live,
+        const {category ,description,product_name,rank,is_used,delivery_from,can_return,reserve_price,shipping_fee,step_price,auction_live,
             type_of_auction,start_time,finish_time} = req.body
 
-        if(!category || !description || !product_name || !rank  || !delivery_from || !can_return || !reserve_price || !shipping_fee || !min_price || !step_price
+        if(!category || !description || !product_name || !rank  || !delivery_from || !can_return || !reserve_price || !shipping_fee  || !step_price
             || !auction_live || !type_of_auction || !start_time || !finish_time || start_time > finish_time){
             return res.status(404).json({message : 'Chưa điền đủ thông tin cần thiết để mở phiên đấu giá '})
         }

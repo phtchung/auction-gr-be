@@ -98,7 +98,8 @@ const cancelDelivery = async () => {
             {
                 $set: {
                     status: 11,
-                    cancel_time:new Date()
+                    cancel_time:new Date(),
+                    'delivery.status':11
                 }
             }
         ]
@@ -113,17 +114,22 @@ const cancelDelivery = async () => {
             .populate('winner_id','_id');
 
         for (const order of canceledOrders) {
-            await User.updateOne(
+            let user = await User.findOneAndUpdate(
                 { _id: order.winner_id._id },
-                { $inc: { point: -200 } }
+                { $inc: { point: -35 } }
             );
+            console.log(user)
+            if(user.point < 0){
+                user.active = false
+                await user.save();
+            }
         }
     }
 };
 
 const cancelDeliveryJob = () => {
     const job5 = new cron.schedule(
-        '0 0,12 * * *', async function() {
+        '* * * * *', async function() {
             await cancelDelivery();
         });
     job5.start();
@@ -155,9 +161,9 @@ const NotifyConfirmDelivery = async () => {
             .populate('seller_id','_id');
 
         for (const order of canceledOrders) {
-            await User.updateOne(
+            let user = await User.updateOne(
                 { _id: order.seller_id._id },
-                { $inc: { shop_point: -10 } }
+                { $inc: { shop_point: -20 } }
             );
         }
     }
