@@ -2,6 +2,9 @@ const cron = require('node-cron');
 const Product = require("./app/models/product.model");
 const User = require("./app/models/user.model");
 const Auction = require("./app/models/auction.model");
+const Notification = require("./app/models/notification.model");
+const {formatDateTime} = require("./app/utils/constant");
+const sse = require("./app/sse");
 
 // update trạng thái sản phẩm ( chuyển sang đấu giá )
 const updateBiddingProduct = async () => {
@@ -111,25 +114,42 @@ const cancelDelivery = async () => {
             'delivery.payment_method':{ $exists: false },
             cancel_time: { $exists: true }
         }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
-            .populate('winner_id','_id');
+            .populate('winner_id seller_id','_id');
 
         for (const order of canceledOrders) {
             let user = await User.findOneAndUpdate(
                 { _id: order.winner_id._id },
                 { $inc: { point: -35 } }
             );
-            console.log(user)
             if(user.point < 0){
                 user.active = false
                 await user.save();
             }
+            const data = new Notification ({
+                title : 'Đơn hàng bị hủy',
+                content : `Đơn hàng #${order._id.toString()} vừa bị hủy vì người thắng không hoàn thành thủ tục nhận hàng.`,
+                url :`/reqOrderTracking/reqOrderDetail/${order._id.toString()}?status=11`,
+                type : 1,
+                receiver : [order.seller_id._id],
+            })
+            const data1 = new Notification ({
+                title : 'Đơn hàng bị hủy',
+                content : `Đơn hàng #${order._id.toString()} vừa bị hủy vì bạn không hoàn thành thủ tục nhận hàng, tài khoản bị trừ 35 điểm`,
+                url :`/winOrderTracking/winOrderDetail/${order._id.toString()}?status=11`,
+                type : 1,
+                receiver : [order.winner_id._id],
+            })
+            await data.save()
+            await data1.save()
+            sse.send( data1, `cancelProduct_${order.winner_id._id.toString()}`);
+            sse.send( data, `cancelProduct_${order.seller_id._id.toString()}`);
         }
     }
 };
 
 const cancelDeliveryJob = () => {
     const job5 = new cron.schedule(
-        '* * * * *', async function() {
+        '0 0,12 * * *', async function() {
             await cancelDelivery();
         });
     job5.start();

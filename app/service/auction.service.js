@@ -371,7 +371,7 @@ exports.checkoutProduct = async (req, res) => {
             _id: new mongoose.Types.ObjectId(req.body.product_id),
             winner_id: new mongoose.Types.ObjectId(userId)
         }).populate('product_id')
-
+        console.log(product.deposit)
         if (product.status === 4) {
             // = 0 tiền mặt , bằng 1 : momo , bằng 2 : zlpay
             if(req.body?.payment_method === 0){
@@ -513,7 +513,7 @@ exports.checkoutProduct = async (req, res) => {
                     app_time: Date.now(), // miliseconds
                     item: JSON.stringify(items),
                     embed_data: JSON.stringify(embed_data),
-                    amount: product.final_price + product.shipping_fee,
+                    amount:product.deposit_price ? product.final_price + product.shipping_fee - product.deposit_price : product.final_price + product.shipping_fee,
                     description: `Auction - Thanh toán cho sản phẩm ${product?.product_id?.product_name}`,
                     bank_code: "zalopayapp",
                 };

@@ -83,8 +83,13 @@ exports.signin = async (req, res) => {
 
         const isPasswordCorrect = bcrypt.compareSync(password, user?.password || "")
 
+
         if (!user || !isPasswordCorrect) {
             return res.status(400).json({error: "Sai thông tin đăng nhập"});
+        }
+
+        if(!user.active){
+            return res.status(403).json({error: "Tài khoản của bạn đã bị khóa"});
         }
 
         const token = jwt.sign({id: user._id, username: user.username}, config.secret, {

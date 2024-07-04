@@ -55,7 +55,6 @@ exports.initAuctionSocket = (auctionId) => {
                 }
             });
         });
-
     } else {
         activeAuctions[auctionId].namespace.on('connection', (socket) => {
             const userId = socket.handshake.query.userId;
