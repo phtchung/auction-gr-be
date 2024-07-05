@@ -838,6 +838,7 @@ exports.createCategory = async (req, res) => {
         const category = new Categories({
             name: req.body?.name,
             image:main_image,
+            status : 1,
         })
         await category.save();
 
@@ -849,9 +850,13 @@ exports.createCategory = async (req, res) => {
 
 exports.getCategories = async (req, res) => {
     try {
-         const categories = await Categories.find({
-             parent: {$eq: null, $exists: true},
-            })
+        let searchCondition = {
+            parent: { $eq: null, $exists: true }
+        };
+        if (req.query.key) {
+            searchCondition.name = {$regex: req.query.key, $options: 'i'};
+        }
+         const categories = await Categories.find(searchCondition);
         res.status(200).json({categories})
     } catch (error) {
         res.status(500).json({message: 'Internal server error' + error})

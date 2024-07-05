@@ -1357,7 +1357,7 @@ exports.createStreamBid = async (req, res) => {
         })
 
         if(!checkAccessCode){
-            return res.status(404).json({message: 'Không đủ điều kiện tham gia đấu giá !'})
+            return res.status(404).json({message: 'Mã truy cập không hợp lệ. Tài khoản có thể đang được đăng nhập ở nơi khác!'})
         }
 
         if(product.type_of_auction === 1 && product.bids.length !== 0){
@@ -1579,7 +1579,7 @@ exports.checkoutDeposit = async (req, res) => {
                 // Trang thank you
                 var ipnUrl = process.env.ipnUrl
                 // var ipnUrl = redirectUrl = "https://webhook.site/454e7b77-f177-4ece-8236-ddf1c26ba7f8";
-                var amount =  product.deposit_price + 50000
+                var amount =  product.deposit_price
                 // var requestType = "payWithATM";
                 // show cái thông tin thẻ, cái dưới quét mã, cái trên điền form
                 var requestType = "captureWallet";
@@ -1690,7 +1690,7 @@ exports.checkoutDeposit = async (req, res) => {
                     apptime: Date.now(), // miliseconds
                     item: "[]",
                     embeddata: JSON.stringify(embeddata),
-                    amount: product.deposit_price + 50000,
+                    amount: product.deposit_price ,
                     description: `Auction - Thanh toán đăng ký đấu giá sản phẩm ${product?.product_id?.product_name}`,
                     bankcode:"zalopayapp",
                 };

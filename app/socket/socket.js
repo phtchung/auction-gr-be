@@ -43,6 +43,15 @@ exports.initAuctionSocket = (auctionId) => {
                 activeAuctions[auctionId].socketId.push(socket.id);
             }
 
+            console.log('số kết nối trong namespace' ,auctionNamespace.sockets.size)
+            const connectedSocketsnamepsaces = auctionNamespace.sockets;
+            for (const socketId in connectedSocketsnamepsaces) {
+                const socket = connectedSocketsnamepsaces[socketId];
+                console.log(`Socket ID: ${socketId}`);
+                console.log(`Socket data: ${JSON.stringify(socket.data)}`);
+            }
+
+
             socket.on("disconnect", () => {
                 console.log("user disconnected", socket.id, auctionId);
                 if (activeAuctions[auctionId].socketId.length) {
@@ -63,6 +72,17 @@ exports.initAuctionSocket = (auctionId) => {
                 socket.disconnect(true);
                 return;
             }
+
+
+            console.log('số kết nối trong namespace 1' ,activeAuctions[auctionId].namespace.sockets.size)
+            const connectedSocketsnamepsaces = activeAuctions[auctionId].namespace.sockets;
+            for (const socketId in connectedSocketsnamepsaces) {
+                const socket = connectedSocketsnamepsaces[socketId];
+                console.log(`Socket ID 1: ${socketId}`);
+                console.log(`Socket data 1: ${JSON.stringify(socket.data)}`);
+            }
+
+
             if (!activeAuctions[auctionId].socketId.includes(socket.id)) {
                 activeAuctions[auctionId].socketId.push(socket.id);
             }

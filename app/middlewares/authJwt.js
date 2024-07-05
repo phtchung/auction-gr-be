@@ -6,7 +6,7 @@ const User = db.user
 const Role = db.role
 
 verifyToken =  async (req, res, next) => {
-  let token = req.headers['authorization'].split(' ')[1]
+  let token = req.headers['authorization']?.split(' ')[1]
   if (!token) {
     return res.status(403).send({ message: 'No token provided!' })
   }
