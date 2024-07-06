@@ -148,7 +148,7 @@ exports.updateInfo = async (req, res) => {
         if (birthday) {
             user.date_of_birth = birthday
         }
-        console.log('LOZ')
+
         if (gender !== null) {
             user.gender = gender
         }

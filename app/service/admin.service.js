@@ -132,6 +132,7 @@ exports.adminApproveAuction = async (req, res , auctions) => {
             _id: new mongoose.Types.ObjectId(request_id),
             status: 1
         })
+
         if (!rq) {
             return {
                 data: [],
@@ -148,16 +149,18 @@ exports.adminApproveAuction = async (req, res , auctions) => {
                 statusCode: 500,
             };
         }
+
+
         const request = await Request.findOneAndUpdate({
-                _id: new mongoose.Types.ObjectId(request_id),
+                _id: new mongoose.Types.ObjectId(request_id)
             },
             {
                 $set: {
                     status: 2,
                     category_id: new mongoose.Types.ObjectId(category),
-                    type_of_auction:parseInt(type_of_auction),
-                    start_time: new Date(new Date(start_time).getTime() - 7 * 60 * 60 * 1000),
-                    finish_time: new Date(new Date(finish_time).getTime() - 7 * 60 * 60 * 1000),
+                    type_of_auction:type_of_auction,
+                    start_time: start_time,
+                    finish_time: finish_time
                 }
             })
 
@@ -179,8 +182,8 @@ exports.adminApproveAuction = async (req, res , auctions) => {
                 step_price: request?.step_price,
                 seller_id: request?.seller_id,
                 type_of_auction: type_of_auction,
-                start_time: new Date(new Date(start_time).getTime() - 7 * 60 * 60 * 1000),
-                finish_time: new Date(new Date(finish_time).getTime() - 7 * 60 * 60 * 1000),
+                start_time: start_time,
+                finish_time: finish_time,
                 main_image: request?.main_image,
                 request_time: request?.createdAt,
                 auction_live : request?.auction_live,

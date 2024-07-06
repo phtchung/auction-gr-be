@@ -68,7 +68,7 @@ exports.UserReviewProduct = async (req, res) => {
         await User.findOneAndUpdate({
                 _id: new mongoose.Types.ObjectId(userId),
             },
-            {$inc: {point: 20}})
+            {$inc: {point: 10}})
         const rate = parseFloat(req.body.rate);
 
         if (rate) {

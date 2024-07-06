@@ -644,15 +644,48 @@ exports.checkoutProductController = async (req, res) => {
 
 exports.getTopSeller = async (req, res) => {
     try {
+        const userWithMaxProductDoneCount = await User.findOne({
+            roles:  { $eq: new mongoose.Types.ObjectId(process.env.userid) }
+        }).sort({ product_done_count: -1 })
+            .select('product_done_count');
+
+        const maxProductDoneCount = userWithMaxProductDoneCount.product_done_count;
+
         const users = await User.aggregate([
-            { $match:
-                    { average_rating: { $gt: 4 },
-                        roles: { $elemMatch: { $eq: new mongoose.Types.ObjectId(process.env.userid) } }}
+            {
+                $match: {
+                    average_rating: { $gt : 0 },
+                    roles: { $elemMatch: { $eq: new mongoose.Types.ObjectId(process.env.userid) } }
+                }
             },
-            { $limit: 6 },
-            { $sort: { 'product_done_count': -1 } },// Giới hạn chỉ lấy 6 kết quả đầu tiên
-            { $project: { _id: 1,username:1, completed_orders: 1, name : 1,product_done_count: 1,average_rating:1 } } // Chỉ lấy ra user_id và số đơn hàng hoàn thành
-        ])
+            {
+                $addFields: {
+                    total_score: {
+                        $add: [
+                            { $divide: [ { $multiply: ['$average_rating',2, '$rate_count'] }, '$product_done_count'] },
+                            { $multiply: [ { $divide: ['$product_done_count', maxProductDoneCount] }, 10 ] }
+                        ]
+                    }
+                }
+            },
+            {
+                $sort: { total_score: -1 }
+            },
+            {
+                $limit: 6
+            },
+            {
+                $project: {
+                    _id: 1,
+                    username: 1,
+                    completed_orders: 1,
+                    name: 1,
+                    product_done_count: 1,
+                    average_rating: 1,
+                    total_score: 1
+                }
+            }
+        ]);
 
         res.status(200).json( users)
     } catch (err) {
