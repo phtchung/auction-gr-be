@@ -6,6 +6,7 @@ const Conversation = require("../models/conversation.model");
 const Message = require("../models/message.model");
 const Auction = require("../models/auction.model");
 const Request = require("../models/request.model");
+const Bid = require("../models/bid.model");
 
 exports.allAccess = (req, res) => {
     res.status(200).send('Public Content.')
@@ -19,6 +20,7 @@ exports.getMyProfile = async (req, res) => {
     try {
         // Lấy thông tin người dùng hiện tại từ JWT token đã xác thực
         const userId = req.userId
+        const username = req.username
 
         // Sử dụng Mongoose để tìm người dùng dựa trên userId
         const user = await User.findById(userId)
@@ -33,46 +35,55 @@ exports.getMyProfile = async (req, res) => {
 
         const AucW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 4
         })
 
         const DlvW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: {$in: [5, 6, 7]}
         })
 
         const ReW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 9
         })
 
         const count_penR = await Request.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 1
         })
 
         const count_appR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 2
         })
 
         const count_bidR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: { $in: [3, 4] },
         })
 
         const count_sucR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 5
         })
 
         const count_cfR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 6
         })
 
         const count_dlvR = await Auction.countDocuments({
             seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
             status: 7
         })
 
@@ -81,14 +92,43 @@ exports.getMyProfile = async (req, res) => {
             checkBidding = 1
         }
 
-        // Loại bỏ mật khẩu khỏi thông tin người dùng
-        const userData = {
+        let userData = {
             _id: user._id,
             email: user.email,
             name: user.name,
             roles: roles.map((role) => role.name),
             auction_deposit : user.auction_deposit,
             checkBidding : checkBidding
+        }
+
+        const product_biddings = await Bid.aggregate([
+            {
+                $match: {username: username}
+            },
+            {
+                $group: {
+                    _id: '$auction_id',
+                }
+            },
+            {
+                $sort: {createdAt: -1}
+            }
+        ])
+        const productIds = product_biddings.length > 0 ? product_biddings.map((item) => item._id) : []
+
+        if(productIds.length === 0){
+            return  res.status(200).json(userData)
+        }
+        const data = await Auction.find({
+            status: 3,
+            _id : {$in: productIds},
+            reserve_price : {$gt : 500000}
+        })
+
+        if(data.length === 0 ){
+            return  res.status(200).json(userData)
+        }else {
+            userData = {...userData,checkBidding : 1 }
         }
 
         res.status(200).json(userData)
