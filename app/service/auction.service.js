@@ -11,7 +11,7 @@ const axios = require("axios");
 const Bid = require("../models/bid.model");
 const sse = require("../sse");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
-const {formatDateTime, canBidByPoint, getMinimumPoints, checkByAuctionDeposit} = require("../utils/constant");
+const {formatDateTime, canBidByPoint, getMinimumPoints, checkByAuctionDeposit, isValidPhoneNumber} = require("../utils/constant");
 const User = require("../models/user.model");
 require('dotenv').config()
 
@@ -367,6 +367,15 @@ exports.checkoutProduct = async (req, res) => {
                 statusCode: 500,
             };
         }
+        if(!isValidPhoneNumber(phone)){
+            return {
+                data: [],
+                error: true,
+                message: "Số điện thoại không hợp lệ",
+                statusCode: 500,
+            };
+        }
+
         let product = await Auction.findOne({
             _id: new mongoose.Types.ObjectId(req.body.product_id),
             winner_id: new mongoose.Types.ObjectId(userId)

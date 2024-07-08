@@ -60,12 +60,12 @@ const startFinishSuccessAuctionJob = () => {
     job2.start();
 };
 
-// tự động hopoanf thành sau 7 ngày
+// tự động hopoanf thành sau 10 ngày
 const doneDelivery = async () => {
      await Auction.updateMany(
         {
             status: 7,
-            'delivery.delivery_start_time': { $lt : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+            'delivery.delivery_start_time': { $lt : new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
             'delivery.completed_time': { $exists: false }
         },
         [
@@ -121,7 +121,7 @@ const cancelDelivery = async () => {
                 { _id: order.winner_id._id },
                 { $inc: { point: -35 } }
             );
-            if(user.point < 0){
+            if(user.point <= 0){
                 user.active = false
                 await user.save();
             }
@@ -157,7 +157,7 @@ const cancelDeliveryJob = () => {
 
 
 const NotifyConfirmDelivery = async () => {
-    const rs = await Auction.updateMany(
+    const rs1 = await Auction.updateMany(
         {
             status: 5,
             'delivery.delivery_before': { $lt : new Date() },
@@ -166,25 +166,50 @@ const NotifyConfirmDelivery = async () => {
             {
                 $set: {
                     status: 11,
-                    cancel_time:new Date()
+                    cancel_time:new Date(),
+                    'delivery.status':11
                 }
             }
         ]
     );
+
 //     còn đoạn trừ điểm người dùng nữa
-    if(rs.modifiedCount > 0 ){
+    if(rs1.modifiedCount > 0 ){
         const canceledOrders = await Auction.find({
             status: 11,
             'delivery.payment_method' : { $exists: true },
             cancel_time: { $exists: true }
-        }).sort({ updatedAt: -1 }).limit(rs.modifiedCount)
+        }).sort({ updatedAt: -1 }).limit(rs1.modifiedCount)
             .populate('seller_id','_id');
 
         for (const order of canceledOrders) {
-            let user = await User.updateOne(
+            let user = await User.findOneAndUpdate(
                 { _id: order.seller_id._id },
                 { $inc: { shop_point: -20 } }
             );
+
+            if(user.shop_point <= 0){
+                user.active = false
+                await user.save();
+            }
+            const data = new Notification ({
+                title : 'Đơn hàng bị hủy',
+                content : `Đơn hàng #${order._id.toString()} vừa bị hủy vì người bán không giao sản phẩm đúng thời hạn.`,
+                url :`/winOrderTracking/winOrderDetail/${order._id.toString()}?status=11`,
+                type : 1,
+                receiver : [order.winner_id._id],
+            })
+            const data1 = new Notification ({
+                title : 'Đơn hàng bị hủy',
+                content : `Đơn hàng #${order._id.toString()} vừa bị hủy vì bạn không giao hàng đúng thời hạn, tài khoản bán hàng bị trừ 20 điểm`,
+                url :`/reqOrderTracking/reqOrderDetail/${order._id.toString()}?status=11`,
+                type : 1,
+                receiver : [order.seller_id._id],
+            })
+            await data.save()
+            await data1.save()
+            sse.send( data1, `cancelProduct_${order.seller_id._id.toString()}`);
+            sse.send( data, `cancelProduct_${order.winner_id._id.toString()}`);
         }
     }
 };

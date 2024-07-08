@@ -411,14 +411,14 @@ exports.checkoutProductController = async (req, res) => {
     res.status(result.statusCode).json(result);
     if (!result.error) {
         const temp = new Date()
-        temp.setDate(temp.getDate() + 3);
+        temp.setDate(temp.getDate() + 6);
         temp.setHours(23, 59, 0, 0);
         await Auction.findOneAndUpdate(
             {
                 _id: result.data._id,
                 status: 5,
             },
-            { $set: { 'delivery.delivery_before': temp } },
+            { $set: { 'delivery.delivery_before': new Date(temp.toISOString()) } },
         );
         const data = new Notification ({
             title : 'Đấu giá thành công',
@@ -1286,7 +1286,7 @@ exports.createRealtimeBid = async (req, res) => {
 
         if(!checkByAuctionDeposit(auction_deposit , product.reserve_price)){
             if(!canBidByPoint(point, product.reserve_price)){
-                return res.status(404).json({message: `Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy. Tham khảo tính năng đăng ký cọc để tham gia đấu giá nhé! `})
+                return res.status(404).json({message: `Cần thêm ${getMinimumPoints(product.reserve_price) - point} điểm lũy. Đăng ký mức cọc phù hợp để tham gia đấu giá nhé! `})
             }
         }
 

@@ -156,9 +156,9 @@ module.exports.canBidByPoint = (userPoints, productPrice) => {
 
 module.exports.checkByAuctionDeposit = (deposit, productPrice) => {
     if (deposit === 50) {
-        return productPrice <= 2000000;
+        return productPrice < 2000000;
     } else if (deposit === 100) {
-        return productPrice <= 5000000;
+        return productPrice < 5000000;
     } else if (deposit === 200) {
         return productPrice <= 15000000;
     } else if (deposit === 300) {
@@ -197,6 +197,12 @@ module.exports.isValidCardName = (cardName) => {
 
 module.exports.isValidCVC = (cvc) =>  {
     return /^\d{3}$/.test(cvc);
+}
+
+module.exports.isValidPhoneNumber = (phoneNumber) => {
+    const phonePattern = /^0\d{9}$/; // Bắt đầu bằng 0 và có tổng cộng 10 chữ số
+
+    return phonePattern.test(phoneNumber);
 }
 
 module.exports.isValidExpiration = (expiration) =>  {
