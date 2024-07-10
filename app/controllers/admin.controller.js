@@ -1009,7 +1009,7 @@ exports.ReSendCode = async (req, res) => {
             auction_id : new mongoose.Types.ObjectId(auctionId)
         }).populate({
                 path: 'auction_id',
-                select: 'product_id start_time',
+                select: 'product_id start_time room_id',
                 populate: {
                     path: 'product_id',
                     select: 'product_name'
@@ -1021,7 +1021,7 @@ exports.ReSendCode = async (req, res) => {
         }
 
         await sendEmail(
-            {email: user.email , productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
+            {email: user.email ,room :code?.auction_id?.room_id ,  productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
 
         res.status(200).json({message:'Gửi lại email thành công'})
     } catch (err) {
@@ -1038,7 +1038,7 @@ exports.sendCodeToAnotherEmail = async (req, res) => {
             auction_id : new mongoose.Types.ObjectId(auctionId)
         }).populate({
             path: 'auction_id',
-            select: 'product_id start_time code_access',
+            select: 'product_id start_time code_access room_id',
             populate: {
                 path: 'product_id',
                 select: 'product_name'
@@ -1049,7 +1049,7 @@ exports.sendCodeToAnotherEmail = async (req, res) => {
         }
 
         await sendEmail(
-            {email: email, productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
+            {email: email,room : code?.auction_id?.room_id, productName : code?.auction_id?.product_id?.product_name,randomCode: code.code, startTime : formatDateTime(code?.auction_id?.start_time) })
 
         res.status(200).json({message:'Gửi lại email thành công'})
     } catch (err) {

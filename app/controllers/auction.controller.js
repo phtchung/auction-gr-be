@@ -773,7 +773,7 @@ exports.getRealtimeProduct = async (req, res) => {
         }
         const page = parseInt(req.body.query.page) - 1 || 0
 
-        const limit = 15
+        const limit = 10
         const products = await Auction
             .find(query)
             .skip(page*limit)
@@ -820,7 +820,7 @@ exports.getStreamProduct = async (req, res) => {
         }
         const page = parseInt(req.body.query.page) - 1 || 0
 
-        const limit = 15
+        const limit = 10
         const products = await Auction
             .find(query)
             .skip(page*limit)
@@ -1689,7 +1689,7 @@ exports.checkoutDeposit = async (req, res) => {
                             await Promise.all([product.save(), registration.save()]);
 
                             if(registration){
-                                await sendEmail({ email: user.email , productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                                await sendEmail({ email: user.email ,room : product?.room_id, productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
                             }
                         }
                         res.json({message: 'Thành công', payUrl: url});
@@ -1755,7 +1755,7 @@ exports.checkoutDeposit = async (req, res) => {
                     await Promise.all([product.save(), registration.save()]);
 
                     if(registration){
-                        await sendEmail({ email: user.email , productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
+                        await sendEmail({ email: user.email ,room :product?.room_id, productName : product?.product_id?.product_name, randomCode, startTime : formatDateTime(product.start_time) })
                     }
                 }
                 res.status(200).json({message: 'Thành công', payUrl: returnUrl});
