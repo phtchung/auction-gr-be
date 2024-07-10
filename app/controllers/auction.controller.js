@@ -24,6 +24,7 @@ const Bid = require("../models/bid.model");
 const Message = require("../models/message.model");
 const {sendEmailAuctionSuccess} = require("../utils/helper");
 const https = require("https");
+const Request = require("../models/request.model");
 
 
 exports.getBiddingList = async (req, res) => {
@@ -1957,20 +1958,59 @@ exports.withdrawPackageRegistration = async (req, res) => {
 
         const AucW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gte : 500000},
             status: 4
         })
 
         const DlvW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gte : 500000},
             status: {$in: [5, 6, 7]}
         })
 
         const ReW = await Auction.countDocuments({
             winner_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gte : 500000},
             status: 9
         })
 
-        if(AucW || DlvW || ReW){
+        const count_penR = await Request.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: 1
+        })
+
+        const count_appR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: 2
+        })
+
+        const count_bidR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: { $in: [3, 4] },
+        })
+
+        const count_sucR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: 5
+        })
+
+        const count_cfR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: 6
+        })
+
+        const count_dlvR = await Auction.countDocuments({
+            seller_id: new mongoose.Types.ObjectId(userId),
+            reserve_price : {$gt : 500000},
+            status: 7
+        })
+
+        if(AucW || DlvW || ReW || count_penR || count_appR || count_dlvR || count_cfR || count_sucR || count_bidR ){
             return res.status(404).json({ message: 'Bạn chưa hoàn tất các phiên đấu giá hiện tại.' })
         }
 

@@ -229,7 +229,7 @@ exports.adminApproveAuctionController = async (req, res) => {
     if (!result.error) {
         const data = new Notification ({
             title : 'Yêu cầu được duyệt',
-            content : `Yêu cầu #${result.data.request_id.toString()} vừa được quản trị viên phê duyệt .Sản phẩm sẽ được đấu giá vào lúc ${formatDateTime(result.data.start_time)}`,
+            content : `Yêu cầu #${result.data.request_id.toString()} vừa được quản trị viên phê duyệt .Sản phẩm sẽ được đấu giá vào lúc ${formatDateTime(new Date(new Date(result.data.start_time).getTime() + 7*60*60*1000))}`,
             url :`/reqOrderTracking/reqOrderDetail/${result.data._id.toString()}?status=2`,
             type : 1,
             receiver : [result.data.seller_id],
