@@ -308,7 +308,7 @@ exports.getProductsByFilterSellerHome = async (req, res) => {
         }
 
         const page = parseInt(req.query.page) - 1 || 0
-        const limit = 5
+        const limit = 15
 
         query.status = 3
         query.seller_id = new mongoose.Types.ObjectId(user._id)
@@ -696,7 +696,7 @@ exports.getTopSeller = async (req, res) => {
 exports.getProduct1k = async (req, res) => {
     try {
         const products = await Auction.find({
-            reserve_price: { $lt: 1000 },
+            reserve_price: { $lte: 10000 },
             status: 3,
             auction_live: 0,
             finish_time: { $gt: new Date(), $exists: true }
@@ -737,7 +737,7 @@ exports.getStandoutProduct = async (req, res) => {
             finish_time: { $gt: new Date(), $exists: true },
             auction_live : { $nin: [1, 2] }
         })
-            .limit(10)
+            .limit(7)
             .sort({ view: -1 })
             .populate('product_id', 'product_name  main_image')
             .select('_id reserve_price final_price');
@@ -1023,7 +1023,7 @@ exports.getProductsByFilter = async (req, res) => {
         }
 
         const page = parseInt(req.query.page) - 1 || 0
-        const limit = 5
+        const limit = 15
 
         query.status = 3
         if(query.start_time){
@@ -1176,7 +1176,7 @@ exports.getSearchProducts = async (req, res) => {
         }
 
         const page = parseInt(req.query.page) - 1 || 0
-        const limit = 5
+        const limit = 15
 
         query.status = 3
         if(query.start_time){
@@ -1705,39 +1705,35 @@ exports.checkoutDeposit = async (req, res) => {
             }
             else if(req.body?.payment_method === 2){
                 const config = {
-                    appid: process.env.appid,
-                    key1: process.env.key1,
-                    key2: process.env.key2,
-                    endpoint: process.env.endpoint,
+                    app_id: process.env.app_id,
+                    key1: process.env.key1_new,
+                    key2: process.env.key2_new,
+                    endpoint: process.env.endpoint_new,
                 };
-                const embeddata = {
-                    "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": `${process.env.SERVER}confirm/${product._id}`,
-                    // process.env.redirectUrl
-                };
-
+                const embed_data = { "redirecturl": `${process.env.SERVER}confirm/${product._id}`};
+                const items = [{}];
+                const transID = Math.floor(Math.random() * 1000000);
                 const order = {
-                    appid: config.appid,
-                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
-                    appuser: "demo",
-                    apptime: Date.now(), // miliseconds
-                    item: "[]",
-                    embeddata: JSON.stringify(embeddata),
-                    amount: product.deposit_price ,
-                    description: `Auction - Thanh toán đăng ký đấu giá sản phẩm ${product?.product_id?.product_name}`,
-                    bankcode:"zalopayapp",
+                    app_id: config.app_id,
+                    app_trans_id: `${moment().format('YYMMDD')}_${transID}`, // translation missing: vi.docs.shared.sample_code.comments.app_trans_id
+                    app_user: "user123",
+                    app_time: Date.now(),
+                    item: JSON.stringify(items),
+                    embed_data: JSON.stringify(embed_data),
+                    amount:product.deposit_price,
+                    description: `Auction - Thanh toán đăng ký đấu giá sản phẩm  ${product?.product_id?.product_name}`,
+                    bank_code: "zalopayapp",
                 };
 
-                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
-                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
-
+                const data = config.app_id + "|" + order.app_trans_id + "|" + order.app_user + "|" + order.amount + "|" + order.app_time + "|" + order.embed_data + "|" + order.item;
+                order.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
                 var returnUrl = ''
                 var returncode = 0
-                 await axios.post(config.endpoint, null, { params: order })
+                await axios.post(config.endpoint, null, { params: order })
                     .then(res => {
                         console.log(res.data);
-                        returnUrl += res.data.orderurl
-                       returncode +=res.data.returncode
+                        returnUrl += res.data.order_url
+                        returncode +=res.data.return_code
                     })
                     .catch(err => console.log(err));
 
@@ -1885,41 +1881,38 @@ exports.checkoutPackageRegistration = async (req, res) => {
         }
             else if(payment_method === 2){
                 const config = {
-                    appid: process.env.appid,
-                    key1: process.env.key1,
-                    key2: process.env.key2,
-                    endpoint: process.env.endpoint,
-                };
-                const embeddata = {
-                    "promotioninfo":"","merchantinfo":"embeddata123",
-                    "redirecturl": `${process.env.SERVER}confirmRegistration`,
-                    // process.env.redirectUrl
+                    app_id: process.env.app_id,
+                    key1: process.env.key1_new,
+                    key2: process.env.key2_new,
+                    endpoint: process.env.endpoint_new,
                 };
 
-                const order = {
-                    appid: config.appid,
-                    apptransid: `${moment().format('YYMMDD')}_${uuid()}`, // mã giao dich có định dạng yyMMdd_xxxx
-                    appuser: "demo",
-                    apptime: Date.now(), // miliseconds
-                    item: "[]",
-                    embeddata: JSON.stringify(embeddata),
-                    amount: data1.deposit* 1000,
-                    description: `Auction - Thanh toán đăng ký đấu giá mức `+data1.level,
-                    bankcode:"zalopayapp",
-                };
+            const embed_data = { "redirecturl": `${process.env.SERVER}confirmRegistration` };
+            const items = [{}];
+            const transID = Math.floor(Math.random() * 1000000);
+            const order = {
+                app_id: config.app_id,
+                app_trans_id: `${moment().format('YYMMDD')}_${transID}`, // translation missing: vi.docs.shared.sample_code.comments.app_trans_id
+                app_user: "user123",
+                app_time: Date.now(),
+                item: JSON.stringify(items),
+                embed_data: JSON.stringify(embed_data),
+                amount: data1.deposit* 1000,
+                description: `Auction - Thanh toán đăng ký đấu giá mức `+data1.level,
+                bank_code: "zalopayapp",
+            };
 
-                const data = config.appid + "|" + order.apptransid + "|" + order.appuser + "|" + order.amount + "|" + order.apptime + "|" + order.embeddata + "|" + order.item;
-                order.mac = CryptoJS.HmacSHA256(data, config.key1,data).toString();
-
-                var returnUrl = ''
-                var returncode = 0
-                await axios.post(config.endpoint, null, { params: order })
-                    .then(res => {
-                        console.log(res.data);
-                        returnUrl += res.data.orderurl
-                        returncode +=res.data.returncode
-                    })
-                    .catch(err => console.log(err));
+            const data = config.app_id + "|" + order.app_trans_id + "|" + order.app_user + "|" + order.amount + "|" + order.app_time + "|" + order.embed_data + "|" + order.item;
+            order.mac = CryptoJS.HmacSHA256(data, config.key1).toString();
+            var returnUrl = ''
+            var returncode = 0
+            await axios.post(config.endpoint, null, { params: order })
+                .then(res => {
+                    console.log(res.data);
+                    returnUrl += res.data.order_url
+                    returncode +=res.data.return_code
+                })
+                .catch(err => console.log(err));
 
                 if(returncode === 1){
                     user.auction_deposit = data1.deposit

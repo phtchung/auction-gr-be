@@ -500,7 +500,7 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14, 15]},
                 admin_belong: 0,
             }).select('_id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         } else if (phone) {
@@ -512,7 +512,7 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14,15]},
                 admin_belong: 0,
             }).select('_id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         } else {
@@ -521,7 +521,7 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14, 15]},
                 admin_belong: 0,
             }).select(' _id status start_time finish_time').populate('seller_id product_id', 'name product_name')
         }
@@ -532,6 +532,7 @@ exports.adminGetAuctionHistoryList = async (req, res) => {
             total_failure: auctions.filter((req) => req.status === 10).length,
             total_canceled: auctions.filter((req) => req.status === 11).length,
             total_returned: auctions.filter((req) => req.status === 14).length,
+            total_rj_returned: auctions.filter((req) => req.status === 15).length,
         }
 
         res.status(200).json({auctions, total})
@@ -569,7 +570,7 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14, 15]},
                 admin_belong: 1,
             }).select('_id status start_time finish_time').populate('product_id','product_name')
         } else if (phone) {
@@ -581,7 +582,7 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
                 winner_id: {
                     $in: await User.find({phone: phone}).distinct('_id')
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14 ,15]},
                 admin_belong: 1,
             }).select('_id status start_time finish_time').populate('product_id','product_name')
         } else {
@@ -590,7 +591,7 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
                     $gte: new Date(start_time),
                     $lte: new Date(finish_time)
                 },
-                status: {$in: [8, 10, 11, 14]},
+                status: {$in: [8, 10, 11, 14 ,15]},
                 admin_belong: 1,
             }).select(' _id status start_time finish_time').populate('product_id','product_name')
         }
@@ -601,6 +602,8 @@ exports.adminGetAdminAuctionCompletedList = async (req, res) => {
             total_failure: auctions.filter((req) => req.status === 10).length,
             total_canceled: auctions.filter((req) => req.status === 11).length,
             total_returned: auctions.filter((req) => req.status === 14).length,
+            total_rj_returned: auctions.filter((req) => req.status === 15).length,
+
         }
 
         res.status(200).json({auctions, total})
